@@ -1,0 +1,2 @@
+[console_scripts]
+remote-code-checker = remote_code_checker:main

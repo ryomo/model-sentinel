@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+.venv
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Environments
+.env
+
+# misc
+*.log
+MEMO.md
+
+!.gitkeep

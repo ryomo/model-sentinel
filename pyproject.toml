@@ -1,0 +1,17 @@
+[project]
+name = "remote-code-checker"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Ryo Moriwaki", email = "ryomo@duck.com" }
+]
+requires-python = ">=3.12"
+dependencies = []
+
+[project.scripts]
+remote-code-checker = "remote_code_checker:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
