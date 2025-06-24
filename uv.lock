@@ -3,6 +3,6 @@ revision = 2
 requires-python = ">=3.12"
 
 [[package]]
-name = "remote-code-checker"
+name = "model-sentinel"
 version = "0.1.0"
 source = { editable = "." }
