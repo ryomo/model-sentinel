@@ -1,6 +1,7 @@
 """
 Inference using the uploaded model from Hugging Face Hub.
 """
+
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -46,9 +47,7 @@ def main():
     )
 
     # Decode and print the result
-    generated_text = tokenizer.decode(
-        generated_ids[0], skip_special_tokens=True
-    )
+    generated_text = tokenizer.decode(generated_ids[0], skip_special_tokens=True)
     print(f"\nGenerated: '{generated_text}'")
 
 

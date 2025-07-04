@@ -231,12 +231,13 @@ class ModelSentinel:
             print(f"Error deleting data directory: {e}")
             return False
 
-def check(repo_id, revision=None):
+
+def check(repo_id, revision=None) -> bool:
     sentinel = ModelSentinel()
     model_changed = sentinel.check_model_hash_changed(repo_id, revision=revision)
     if not model_changed:
         print("No changes detected in the model hash. Skipping file checks.")
-        return
+        return True
 
     print("\n" + "=" * 50)
     print("Checking remote Python files...")
@@ -293,8 +294,8 @@ def main():
 
         print("\n" + "=" * 50)
         print("Checking remote Python files...")
-        file_result = sentinel.check_remote_files(REPO_NAME, revision=REVISION)
-        print(f"File check result: {file_result}")
+        verified_all = sentinel.check_remote_files(REPO_NAME, revision=REVISION)
+        print(f"File check result: {verified_all}")
 
 
 if __name__ == "__main__":
