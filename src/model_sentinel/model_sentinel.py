@@ -231,6 +231,20 @@ class ModelSentinel:
             print(f"Error deleting data directory: {e}")
             return False
 
+def check(repo_id, revision=None):
+    sentinel = ModelSentinel()
+    model_changed = sentinel.check_model_hash_changed(repo_id, revision=revision)
+    if not model_changed:
+        print("No changes detected in the model hash. Skipping file checks.")
+        return
+
+    print("\n" + "=" * 50)
+    print("Checking remote Python files...")
+    verified_all = sentinel.check_remote_files(repo_id, revision=revision)
+    print(f"File check result: {verified_all}")
+
+    return verified_all
+
 
 def main():
     import argparse

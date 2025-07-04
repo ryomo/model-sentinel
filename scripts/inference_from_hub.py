@@ -4,11 +4,18 @@ Inference using the uploaded model from Hugging Face Hub.
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
+from model_sentinel import check
+
 
 def main():
     REPO_NAME = "ryomo/malicious-code-test"
     REVISION = "main"
     print(f"Using repository: {REPO_NAME} at revision: {REVISION}")
+
+    if not check(REPO_NAME, REVISION):
+        print(f"Repository {REPO_NAME} at revision {REVISION} is not verified.")
+        print("Please verify all remote files in the repository before proceeding.")
+        return
 
     # Load model and tokenizer from Hub
     print("Loading model from Hugging Face Hub...")

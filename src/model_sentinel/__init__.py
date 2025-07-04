@@ -1,2 +1,1 @@
-def main() -> None:
-    print("Hello from model-sentinel!")
+from .model_sentinel import ModelSentinel, check
