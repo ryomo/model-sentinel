@@ -18,3 +18,9 @@ model-sentinel = "model_sentinel:main"
 [build-system]
 requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
+
+[dependency-groups]
+dev = [
+    "torch>=2.7.1",
+    "transformers>=4.52.4",
+]
