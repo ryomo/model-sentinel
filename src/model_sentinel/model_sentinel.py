@@ -233,6 +233,9 @@ class ModelSentinel:
 
 
 def check(repo_id, revision=None) -> bool:
+    """
+    Check if the model hash has changed and verify remote files.
+    """
     sentinel = ModelSentinel()
     model_changed = sentinel.check_model_hash_changed(repo_id, revision=revision)
     if not model_changed:
@@ -264,10 +267,10 @@ def main():
 
     REPO_NAME = "ryomo/malicious-code-test"
     REVISION = "main"
-    sentinel = ModelSentinel()
 
     if args.delete_data_dir:
         # Delete the data directory
+        sentinel = ModelSentinel()
         result = sentinel.delete_data_dir()
         if result:
             print("Data directory deleted.")
@@ -276,10 +279,12 @@ def main():
 
     elif args.list_verified:
         # List all verified hashes
+        sentinel = ModelSentinel()
         sentinel.list_verified_hashes()
 
     elif args.check_files_only:
         # Check remote files only without checking model hash
+        sentinel = ModelSentinel()
         result = sentinel.check_remote_files(REPO_NAME, revision=REVISION)
         print(f"File check result: {result}")
 
@@ -287,15 +292,9 @@ def main():
         # Default behavior: check model hash then files
         print(f"Using repository: {REPO_NAME} at revision: {REVISION}")
 
-        model_changed = sentinel.check_model_hash_changed(REPO_NAME, revision=REVISION)
-        if not model_changed:
-            print("No changes detected in the model hash. Skipping file checks.")
-            return
-
-        print("\n" + "=" * 50)
-        print("Checking remote Python files...")
-        verified_all = sentinel.check_remote_files(REPO_NAME, revision=REVISION)
-        print(f"File check result: {verified_all}")
+        if not check(REPO_NAME, REVISION):
+            print(f"Repository {REPO_NAME} at revision {REVISION} is not verified.")
+            print("Please verify all remote files in the repository before proceeding.")
 
 
 if __name__ == "__main__":
