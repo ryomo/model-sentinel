@@ -17,11 +17,12 @@ class ModelSentinel:
         self.data_dir = Path(user_data_dir(app_name))
         self.verified_hashes_file = self.data_dir / "verified_hashes.json"
 
-    def check_model_hash_changed(self, repo_id, revision=None) -> bool:
-        """Check if model hash has changed.
+    def check_model_hash_changed(self, repo_id, revision=None) -> str | None:
+        """
+        Check if model hash has changed.
 
         Returns:
-            True if model hash changed or is new, False if unchanged.
+            Current model hash if changed or new, None if no changes detected.
         """
         hf_api = HfApi()
         model_info = hf_api.model_info(repo_id=repo_id, revision=revision)
@@ -37,7 +38,7 @@ class ModelSentinel:
 
         if saved_model_hash == current_model_hash:
             print("No changes detected. Model is up to date.")
-            return False
+            return None
 
         if saved_model_hash is None:
             print("No previous model hash found. This is the first check.")
@@ -46,7 +47,14 @@ class ModelSentinel:
             print(f"Previous hash: {saved_model_hash}")
             print(f"Current hash:  {current_model_hash}")
 
-        return True
+        # Return current model hash to update later, if changed or is new
+        return current_model_hash
+
+    def update_model_hash(self, repo_id, revision, new_model_hash):
+        """Update the model hash in the verified hashes file."""
+        data, repo_key = self._get_repo_data(repo_id, revision)
+        data[repo_key]["model_hash"] = new_model_hash
+        self._save_verified_hashes(data)
 
     def check_remote_files(self, repo_id, revision=None) -> bool:
         """Check remote .py files for changes and prompt for verification.
@@ -237,8 +245,8 @@ def check(repo_id, revision=None) -> bool:
     Check if the model hash has changed and verify remote files.
     """
     sentinel = ModelSentinel()
-    model_changed = sentinel.check_model_hash_changed(repo_id, revision=revision)
-    if not model_changed:
+    new_model_hash = sentinel.check_model_hash_changed(repo_id, revision=revision)
+    if not new_model_hash:
         print("No changes detected in the model hash. Skipping file checks.")
         return True
 
@@ -246,6 +254,10 @@ def check(repo_id, revision=None) -> bool:
     print("Checking remote Python files...")
     verified_all = sentinel.check_remote_files(repo_id, revision=revision)
     print(f"File check result: {verified_all}")
+
+    if verified_all:
+        sentinel.update_model_hash(repo_id, revision, new_model_hash)
+        print("Verified model hash updated.")
 
     return verified_all
 
