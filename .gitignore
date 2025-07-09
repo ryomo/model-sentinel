@@ -1,3 +1,5 @@
+.model-sentinel.json
+
 # Python
 __pycache__/
 *.egg-info/

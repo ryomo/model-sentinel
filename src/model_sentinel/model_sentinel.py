@@ -1,21 +1,15 @@
 import json
 import pydoc
-import shutil
 from pathlib import Path
 
 from huggingface_hub import HfApi
-from platformdirs import user_data_dir
 
 
 class ModelSentinel:
     """Model sentinel for tracking model changes."""
 
     def __init__(self):
-        app_name = "model-sentinel"
-
-        # Initialize data directory
-        self.data_dir = Path(user_data_dir(app_name))
-        self.verified_hashes_file = self.data_dir / "verified_hashes.json"
+        self.verified_hashes_file = Path(".model-sentinel.json")
 
     def check_model_hash_changed(self, repo_id, revision=None) -> str | None:
         """
@@ -163,9 +157,6 @@ class ModelSentinel:
 
     def _save_verified_hashes(self, data):
         """Save verified hashes to JSON file."""
-        if not self.data_dir.exists():
-            self.data_dir.mkdir(parents=True, exist_ok=True)
-
         with open(self.verified_hashes_file, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
 
@@ -225,18 +216,18 @@ class ModelSentinel:
                 print("Files: None verified")
             print("-" * 50)
 
-    def delete_data_dir(self) -> bool:
-        """Delete the data directory.
+    def delete_hash_file(self) -> bool:
+        """Delete the hash file (the list of verified files).
 
         Returns:
             True if deletion was successful, False otherwise.
         """
         try:
-            if self.data_dir.exists():
-                shutil.rmtree(self.data_dir)
+            if self.verified_hashes_file.exists():
+                self.verified_hashes_file.unlink()
             return True
         except Exception as e:
-            print(f"Error deleting data directory: {e}")
+            print(f"Error deleting hash file: {e}")
             return False
 
 
@@ -267,7 +258,7 @@ def main():
 
     parser = argparse.ArgumentParser(description="Model Sentinel CLI")
     parser.add_argument(
-        "--delete-data-dir", action="store_true", help="Delete the data directory"
+        "--delete", action="store_true", help="Delete the hash file"
     )
     parser.add_argument(
         "--check-files-only", action="store_true", help="Only check remote files"
@@ -280,14 +271,14 @@ def main():
     REPO_NAME = "ryomo/malicious-code-test"
     REVISION = "main"
 
-    if args.delete_data_dir:
-        # Delete the data directory
+    if args.delete:
+        # Delete the hash file (the list of verified files)
         sentinel = ModelSentinel()
-        result = sentinel.delete_data_dir()
+        result = sentinel.delete_hash_file()
         if result:
-            print("Data directory deleted.")
+            print("Hash file deleted.")
         else:
-            print("Failed to delete data directory.")
+            print("Failed to delete hash file.")
 
     elif args.list_verified:
         # List all verified hashes
