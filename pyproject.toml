@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [project.scripts]
-model-sentinel = "model_sentinel:main"
+model-sentinel = "model_sentinel.cli:main"
 
 [build-system]
 requires = ["setuptools>=61"]
