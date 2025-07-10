@@ -1,15 +1,10 @@
-import json
-import pydoc
-from pathlib import Path
-
 from huggingface_hub import HfApi
 
+from model_sentinel.target.base import TargetBase
 
-class ModelSentinel:
-    """Model sentinel for tracking model changes."""
 
-    def __init__(self):
-        self.verified_hashes_file = Path(".model-sentinel.json")
+class TargetHF(TargetBase):
+    """Target class for model-sentinel to track Hugging Face model changes."""
 
     def check_model_hash_changed(self, repo_id, revision=None) -> str | None:
         """
@@ -48,7 +43,7 @@ class ModelSentinel:
         """Update the model hash in the verified hashes file."""
         data, repo_key = self._get_repo_data(repo_id, revision)
         data[repo_key]["model_hash"] = new_model_hash
-        self._save_verified_hashes(data)
+        self.verify.save_verified_hashes(data)
 
     def check_remote_files(self, repo_id, revision=None) -> bool:
         """Check remote .py files for changes and prompt for verification.
@@ -81,7 +76,7 @@ class ModelSentinel:
                     repo_key,
                 )
                 if file_content is not None:
-                    file_verified = self._verify_file(
+                    file_verified = self.verify.verify_file(
                         sibling.rfilename, sibling.blob_id, file_content, data, repo_key
                     )
                     if not file_verified:
@@ -89,7 +84,7 @@ class ModelSentinel:
                 else:
                     all_verified = False
 
-        self._save_verified_hashes(data)
+        self.verify.save_verified_hashes(data)
         return all_verified
 
     def _check_single_file(
@@ -133,36 +128,9 @@ class ModelSentinel:
             print(f"Error downloading file {filename}: {e}")
             return None
 
-    def _verify_file(self, filename, current_hash, content, data, repo_key):
-        """Prompt user for verification and update hash if confirmed.
-
-        Returns:
-            True if file is verified and hash updated, False otherwise.
-        """
-        if self._prompt_user_verification(filename, content):
-            data[repo_key]["files"][filename] = current_hash
-            print("Trust confirmed. Hash updated.")
-            return True
-        else:
-            print("Trust not confirmed. Please review the file changes.")
-            return False
-
-    def _load_verified_hashes(self):
-        """Load all verified hashes from JSON file."""
-        if not self.verified_hashes_file.exists():
-            return {}
-
-        with open(self.verified_hashes_file, "r", encoding="utf-8") as f:
-            return json.load(f)
-
-    def _save_verified_hashes(self, data):
-        """Save verified hashes to JSON file."""
-        with open(self.verified_hashes_file, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
-
     def _get_repo_data(self, repo_id, revision=None):
         """Get repository data structure from saved hashes."""
-        data = self._load_verified_hashes()
+        data = self.verify.load_verified_hashes()
         repo_key = f"{repo_id}@{revision}" if revision else repo_id
 
         if repo_key not in data:
@@ -175,67 +143,12 @@ class ModelSentinel:
 
         return data, repo_key
 
-    def _prompt_user_verification(self, item_name, content):
-        """Prompt user for verification of changes."""
-        pydoc.pager(
-            f"{item_name} has been updated.\n"
-            f"--- Content of {item_name} ---\n\n"
-            + content
-            + "\n\n--- End of content ---\n"
-        )
 
-        message = f"Do you trust {item_name}? (y/N): "
-        response = input(message)
-        return response.lower() in ["y", "yes"]
-
-    def list_verified_hashes(self):
-        """Display all verified hashes in a human-readable format."""
-        data = self._load_verified_hashes()
-
-        if not data:
-            print("No verified hashes found.")
-            return
-
-        print("=== Verified Hashes Summary ===")
-        for repo_key, repo_data in data.items():
-            print(f"\nRepository: {repo_data['repo_id']}")
-            if repo_data.get("revision"):
-                print(f"Revision: {repo_data['revision']}")
-
-            if repo_data.get("model_hash"):
-                print(f"Model Hash: {repo_data['model_hash']}")
-            else:
-                print("Model Hash: Not verified")
-
-            files = repo_data.get("files", {})
-            if files:
-                print("Verified Files:")
-                for filename, file_hash in files.items():
-                    print(f"  - {filename}: {file_hash}")
-            else:
-                print("Files: None verified")
-            print("-" * 50)
-
-    def delete_hash_file(self) -> bool:
-        """Delete the hash file (the list of verified files).
-
-        Returns:
-            True if deletion was successful, False otherwise.
-        """
-        try:
-            if self.verified_hashes_file.exists():
-                self.verified_hashes_file.unlink()
-            return True
-        except Exception as e:
-            print(f"Error deleting hash file: {e}")
-            return False
-
-
-def check(repo_id, revision=None) -> bool:
+def check_hf(repo_id, revision=None) -> bool:
     """
     Check if the model hash has changed and verify remote files.
     """
-    sentinel = ModelSentinel()
+    sentinel = TargetHF()
     new_model_hash = sentinel.check_model_hash_changed(repo_id, revision=revision)
     if not new_model_hash:
         print("No changes detected in the model hash. Skipping file checks.")
