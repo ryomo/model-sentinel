@@ -8,36 +8,38 @@ class TargetHF(TargetBase):
 
     def check_model_hash_changed(self, repo_id, revision=None) -> str | None:
         """
-        Check if model hash has changed.
+        Check if model hash has changed, and return the new hash if changed or new.
 
         Returns:
-            Current model hash if changed or new, None if no changes detected.
+            New model hash if changed or new, None if no changes detected.
         """
+        # Get the new model hash from Hugging Face API
         hf_api = HfApi()
         model_info = hf_api.model_info(repo_id=repo_id, revision=revision)
-        current_model_hash = model_info.sha
+        new_model_hash = model_info.sha
 
         print(f"Checking repository: {repo_id}")
         if revision:
             print(f"Revision: {revision}")
-        print(f"Current model hash: {current_model_hash}")
+        print(f"New model hash: {new_model_hash}")
 
+        # Load existing verified hashes
         data, repo_key = self._get_repo_data(repo_id, revision)
-        saved_model_hash = data[repo_key]["model_hash"]
+        old_model_hash = data[repo_key].get("model_hash")
 
-        if saved_model_hash == current_model_hash:
+        if old_model_hash == new_model_hash:
             print("No changes detected. Model is up to date.")
             return None
 
-        if saved_model_hash is None:
+        if old_model_hash is None:
             print("No previous model hash found. This is the first check.")
         else:
             print("Changes detected!")
-            print(f"Previous hash: {saved_model_hash}")
-            print(f"Current hash:  {current_model_hash}")
+            print(f"Previous hash: {old_model_hash}")
+            print(f"New hash:  {new_model_hash}")
 
         # Return current model hash to update later, if changed or is new
-        return current_model_hash
+        return new_model_hash
 
     def update_model_hash(self, repo_id, revision, new_model_hash):
         """Update the model hash in the verified hashes file."""
@@ -148,19 +150,19 @@ def check_hf(repo_id, revision=None) -> bool:
     """
     Check if the model hash has changed and verify remote files.
     """
-    sentinel = TargetHF()
-    new_model_hash = sentinel.check_model_hash_changed(repo_id, revision=revision)
+    target = TargetHF()
+    new_model_hash = target.check_model_hash_changed(repo_id, revision=revision)
     if not new_model_hash:
         print("No changes detected in the model hash. Skipping file checks.")
         return True
 
     print("\n" + "=" * 50)
     print("Checking remote Python files...")
-    verified_all = sentinel.check_remote_files(repo_id, revision=revision)
+    verified_all = target.check_remote_files(repo_id, revision=revision)
     print(f"File check result: {verified_all}")
 
     if verified_all:
-        sentinel.update_model_hash(repo_id, revision, new_model_hash)
+        target.update_model_hash(repo_id, revision, new_model_hash)
         print("Verified model hash updated.")
 
     return verified_all
