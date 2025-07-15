@@ -59,7 +59,7 @@ class Verify:
 
         print("=== Verified Hashes Summary ===")
         for repo_key, repo_data in data.items():
-            print(f"\nRepository: {repo_data['repo_id']}")
+            print(f"\nRepository: {repo_key}")
             if repo_data.get("revision"):
                 print(f"Revision: {repo_data['revision']}")
 
