@@ -1,4 +1,4 @@
-from model_sentinel import Verify, TargetHF, check_hf
+from model_sentinel import Verify, TargetHF, verify_hf_model
 
 
 def main():
@@ -41,6 +41,6 @@ def main():
         # Default behavior: check model hash then files
         print(f"Using repository: {REPO_NAME} at revision: {REVISION}")
 
-        if not check_hf(REPO_NAME, REVISION):
+        if not verify_hf_model(REPO_NAME, REVISION):
             print(f"Repository {REPO_NAME} at revision {REVISION} is not verified.")
             print("Please verify all remote files in the repository before proceeding.")

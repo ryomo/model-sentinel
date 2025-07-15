@@ -5,7 +5,7 @@ Inference using the uploaded model from Hugging Face Hub.
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from model_sentinel import check
+from model_sentinel import verify_hf_model
 
 
 def main():
@@ -13,7 +13,7 @@ def main():
     REVISION = "main"
     print(f"Using repository: {REPO_NAME} at revision: {REVISION}")
 
-    if not check(REPO_NAME, REVISION):
+    if not verify_hf_model(REPO_NAME, REVISION):
         print(f"Repository {REPO_NAME} at revision {REVISION} is not verified.")
         print("Please verify all remote files in the repository before proceeding.")
         return

@@ -1,154 +1,113 @@
-import hashlib
 from pathlib import Path
 
-from model_sentinel import Verify
 from model_sentinel.target.base import TargetBase
 
 
 class TargetLocal(TargetBase):
-    """Target class for model-sentinel to track local model changes."""
+    """
+    Target class for model-sentinel to track local model changes.
+    """
 
-    def _get_directory_hash(self, directory: str, file_type: str = "*.py") -> str:
+    def detect_model_changes(self, model_dir: Path) -> str | None:
         """
-        Calculate a hash for all files in the given directory matching the file_type.
-
-        Args:
-            directory (str): Path to the directory to hash.
-            file_type (str): Glob pattern to match files (default: "*.py").
+        Check if local model hash has changed, and return the new hash if changed or new.
 
         Returns:
-            str: Hexadecimal hash of the directory contents.
+            New model hash if changed or new, None if no changes detected.
         """
-        hash_obj = hashlib.sha256()
-        directory_path = Path(directory)
-        for fpath in directory_path.rglob(file_type):
-            # Add the relative path to the hash
-            rel_path = fpath.relative_to(directory_path)
-            hash_obj.update(str(rel_path).encode())
-            with open(fpath, "rb") as f:
-                while chunk := f.read(8192):
-                    hash_obj.update(chunk)
+        print(f"Model directory: {model_dir}")
+        print(f"Checking model: {model_dir.name}")
 
-        return hash_obj.hexdigest()
+        # Get the directory hash using base class method
+        current_hash = self._calculate_directory_hash(model_dir, "*.py")
+        print(f"Directory hash: {current_hash}")
 
-    def _get_file_hash(self, file_path: str, file_type: str = "*.py") -> str:
+        # Load existing verified hashes
+        model_key = self._get_model_key(model_dir)
+        data, _ = self.get_or_create_model_data(model_key)
+
+        if not super()._check_model_hash_changed(data, model_key, current_hash):
+            return None
+
+        # Return current model hash to update later
+        return current_hash
+
+    def verify_local_files(self, model_dir: Path) -> bool:
         """
-        Calculate a hash for the given file.
-
-        Args:
-            file_path (str): Path to the file to hash.
-            file_type (str): Glob pattern to match files (default: "*.py").
+        Check local .py files for changes and prompt for verification.
 
         Returns:
-            str: Hexadecimal hash of the file contents.
+            True if all files are verified, False otherwise.
         """
-        if not Path(file_path).match(file_type):
-            raise ValueError(f"File {file_path} does not match the pattern {file_type}")
+        print(f"Checking Python files in directory: {model_dir}")
 
-        hash_obj = hashlib.sha256()
-        with open(file_path, "rb") as f:
-            while chunk := f.read(8192):
-                hash_obj.update(chunk)
+        model_key = self._get_model_key(model_dir)
 
-        return hash_obj.hexdigest()
+        # Prepare files for verification using common workflow
+        files_to_check = []
+        file_paths = self._get_files_by_pattern(model_dir, "*.py")
 
-    def _get_file_list(self, directory: str, file_type: str = "*.py") -> list[Path]:
-        """
-        Get a list of files in the given directory matching the file_type.
+        for file_path in file_paths:
+            file_hash = self._calculate_file_hash(file_path)
+            relative_file_path = file_path.relative_to(model_dir)
+            filename = str(relative_file_path)
+            content = self._read_file_content(file_path)
 
-        Args:
-            directory (str): Path to the directory to search.
-            file_type (str): Glob pattern to match files (default: "*.py").
+            files_to_check.append(
+                {
+                    "path": file_path,
+                    "filename": filename,
+                    "hash": file_hash,
+                    "content": content,
+                }
+            )
 
-        Returns:
-            list[Path]: List of file paths matching the file_type.
-        """
-        directory_path = Path(directory)
-        file_list = list(directory_path.rglob(file_type))
-        return file_list
+        # Use common verification workflow
+        return self._verify_files_workflow(model_key, files_to_check)
+
+    def _get_model_key(self, model_dir: Path) -> str:
+        """Generate model key for data storage."""
+        return f"local/{model_dir}"
 
 
-def check_local(model_dir: str | Path) -> bool:
-
+def verify_local_model(model_dir: str | Path) -> bool:
+    """
+    Check if the local model hash has changed and verify local files.
+    """
     model_dir = Path(model_dir)
-    print(f"Model directory: {model_dir}")
 
     # Check if the model directory exists
     if not model_dir.exists():
         print(f"Model directory {model_dir} does not exist.")
         return False
 
-    print(f"Checking model: {model_dir.name}")
-
-    # Load existing verified hashes
-    verify = Verify()
-    data = verify.load_verified_hashes()
-    model_id = f"local/{model_dir}"
-    if model_id not in data:
-        print(f'Model "{model_id}" not found in verified hashes. Initializing.')
-        data[model_id] = {
-            "model_id": model_id,
-            "model_hash": None,
-            "files": {},
-        }
-
-    # Get the directory hash
     target = TargetLocal()
-    dir_hash = target._get_directory_hash(str(model_dir), "*.py")
-    print(f"Directory hash: {dir_hash}")
-
-    # Check if the directory hash has changed
-    if data[model_id]["model_hash"] == dir_hash:
+    new_model_hash = target.detect_model_changes(model_dir)
+    if not new_model_hash:
         print("No changes detected in the model directory.")
         return True
 
-    # Compare the current hash with the saved hash
-    all_verified = True
-    file_list = target._get_file_list(str(model_dir), "*.py")
-    for file_path in file_list:
-        file_hash = target._get_file_hash(file_path, "*.py")
-        relative_file_path = file_path.relative_to(model_dir)
-        print(f"File: {relative_file_path}, Hash: {file_hash}")
+    print("\n" + "=" * 50)
+    print("Checking local Python files...")
+    verified_all = target.verify_local_files(model_dir)
+    print(f"File check result: {verified_all}")
 
-        previous_file_hash = data[model_id]["files"].get(str(relative_file_path))
-        if previous_file_hash == file_hash:
-            print(f"No changes detected in {relative_file_path}.")
-            continue
+    if verified_all:
+        model_key = target._get_model_key(model_dir)
+        target.update_model_hash(model_key, new_model_hash)
+        print("Verified model hash updated.")
 
-        elif previous_file_hash is None:
-            print(
-                f"No previous hash found for {relative_file_path}. This is the first check."
-            )
-
-        else:
-            print(f"Changes detected in {relative_file_path}!")
-
-        content = file_path.read_text(encoding="utf-8")
-        file_verified = verify.verify_file(
-            str(relative_file_path), file_hash, content, data, model_id
-        )
-        if file_verified:
-            data[model_id]["files"][str(relative_file_path)] = file_hash
-        else:
-            all_verified = False
-
-    if all_verified:
-        data[model_id]["model_hash"] = dir_hash
-        verify.save_verified_hashes(data)
-        print(f"Model hash updated to: {dir_hash}")
-    else:
-        print("Some files were not verified. Please review the changes.")
-
-    return all_verified
+    return verified_all
 
 
 if __name__ == "__main__":
     # Set the current working directory to the project root
     import os
+
     project_dir = Path(__file__).parents[3]
     os.chdir(project_dir)
     print(f"Current working directory: {os.getcwd()}")
 
     # Example usage
     model_dir = "downloaded_model/malicious-code-test-hf"
-    check_local(model_dir)
+    verify_local_model(model_dir)

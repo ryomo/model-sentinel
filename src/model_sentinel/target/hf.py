@@ -4,9 +4,11 @@ from model_sentinel.target.base import TargetBase
 
 
 class TargetHF(TargetBase):
-    """Target class for model-sentinel to track Hugging Face model changes."""
+    """
+    Target class for model-sentinel to track Hugging Face model changes.
+    """
 
-    def check_model_hash_changed(self, repo_id, revision=None) -> str | None:
+    def detect_model_changes(self, repo_id, revision=None) -> str | None:
         """
         Check if model hash has changed, and return the new hash if changed or new.
 
@@ -16,38 +18,29 @@ class TargetHF(TargetBase):
         # Get the new model hash from Hugging Face API
         hf_api = HfApi()
         model_info = hf_api.model_info(repo_id=repo_id, revision=revision)
-        new_model_hash = model_info.sha
+        current_hash = model_info.sha
 
         print(f"Checking repository: {repo_id}")
         if revision:
             print(f"Revision: {revision}")
-        print(f"New model hash: {new_model_hash}")
+        print(f"Current model hash: {current_hash}")
 
         # Load existing verified hashes
-        data, repo_key = self._get_repo_data(repo_id, revision)
-        old_model_hash = data[repo_key].get("model_hash")
+        repo_key = self._get_repo_key(repo_id, revision)
+        data, _ = self.get_or_create_model_data(repo_key)
 
-        if old_model_hash == new_model_hash:
-            print("No changes detected. Model is up to date.")
+        if not super()._check_model_hash_changed(data, repo_key, current_hash):
             return None
 
-        if old_model_hash is None:
-            print("No previous model hash found. This is the first check.")
-        else:
-            print("Changes detected!")
-            print(f"Previous hash: {old_model_hash}")
-            print(f"New hash:  {new_model_hash}")
+        # Return current model hash to update later
+        return current_hash
 
-        # Return current model hash to update later, if changed or is new
-        return new_model_hash
-
-    def update_model_hash(self, repo_id, revision, new_model_hash):
+    def update_model_hash_for_repo(self, repo_id, revision, new_model_hash):
         """Update the model hash in the verified hashes file."""
-        data, repo_key = self._get_repo_data(repo_id, revision)
-        data[repo_key]["model_hash"] = new_model_hash
-        self.verify.save_verified_hashes(data)
+        repo_key = self._get_repo_key(repo_id, revision)
+        super().update_model_hash(repo_key, new_model_hash)
 
-    def check_remote_files(self, repo_id, revision=None) -> bool:
+    def verify_remote_files(self, repo_id, revision=None) -> bool:
         """Check remote .py files for changes and prompt for verification.
 
         Returns:
@@ -62,58 +55,39 @@ class TargetHF(TargetBase):
         if revision:
             print(f"Revision: {revision}")
 
-        data, repo_key = self._get_repo_data(repo_id, revision)
-        all_verified = True
+        repo_key = self._get_repo_key(repo_id, revision)
 
-        # Check each .py file
+        # Prepare files for verification using common workflow
+        files_to_check = []
+
         for sibling in model_info.siblings:
             if sibling.rfilename.endswith(".py"):
-                file_content = self._check_single_file(
-                    hf_api,
-                    repo_id,
-                    revision,
-                    sibling.rfilename,
-                    sibling.blob_id,
-                    data,
-                    repo_key,
+                content = self._download_file_content(
+                    hf_api, repo_id, revision, sibling.rfilename
                 )
-                if file_content is not None:
-                    file_verified = self.verify.verify_file(
-                        sibling.rfilename, sibling.blob_id, file_content, data, repo_key
+                if content is not None:
+                    files_to_check.append(
+                        {
+                            "filename": sibling.rfilename,
+                            "hash": sibling.blob_id,
+                            "content": content,
+                        }
                     )
-                    if not file_verified:
-                        all_verified = False
                 else:
-                    all_verified = False
+                    # If download failed, consider verification failed
+                    return False
 
-        self.verify.save_verified_hashes(data)
-        return all_verified
+        # Use common verification workflow
+        return self._verify_files_workflow(repo_key, files_to_check)
 
-    def _check_single_file(
-        self, hf_api, repo_id, revision, filename, current_hash, data, repo_key
-    ):
-        """Check a single file for changes and download if needed.
+    def _download_file_content(self, hf_api, repo_id, revision, filename) -> str | None:
+        """Download file content from HuggingFace.
 
         Returns:
-            File content if file needs verification, None if unchanged or error.
+            File content if successful, None if error.
         """
-        print(f"\nChecking file: {filename}")
-        print(f"Current hash: {current_hash}")
+        print(f"Downloading file: {filename}")
 
-        saved_hash = data[repo_key]["files"].get(filename)
-
-        if saved_hash == current_hash:
-            print("No changes detected. File is up to date.")
-            return None
-
-        if saved_hash is None:
-            print("No previous hash found. This is the first check.")
-        else:
-            print("Changes detected!")
-            print(f"Previous hash: {saved_hash}")
-            print(f"Current hash:  {current_hash}")
-
-        # Download and get file content
         try:
             file_path = hf_api.hf_hub_download(
                 repo_id=repo_id,
@@ -130,39 +104,44 @@ class TargetHF(TargetBase):
             print(f"Error downloading file {filename}: {e}")
             return None
 
-    def _get_repo_data(self, repo_id, revision=None):
-        """Get repository data structure from saved hashes."""
-        data = self.verify.load_verified_hashes()
-        repo_key = f"{repo_id}@{revision}" if revision else repo_id
-
-        if repo_key not in data:
-            data[repo_key] = {
-                "repo_id": repo_id,
-                "revision": revision,
-                "model_hash": None,
-                "files": {},
-            }
-
-        return data, repo_key
+    def _get_repo_key(self, repo_id, revision=None):
+        """Generate repository key for data storage with hf/ prefix."""
+        base_key = f"{repo_id}@{revision}" if revision else repo_id
+        return f"hf/{base_key}"
 
 
-def check_hf(repo_id, revision=None) -> bool:
+def verify_hf_model(repo_id, revision=None) -> bool:
     """
     Check if the model hash has changed and verify remote files.
     """
     target = TargetHF()
-    new_model_hash = target.check_model_hash_changed(repo_id, revision=revision)
+    new_model_hash = target.detect_model_changes(repo_id, revision=revision)
     if not new_model_hash:
         print("No changes detected in the model hash. Skipping file checks.")
         return True
 
     print("\n" + "=" * 50)
     print("Checking remote Python files...")
-    verified_all = target.check_remote_files(repo_id, revision=revision)
+    verified_all = target.verify_remote_files(repo_id, revision=revision)
     print(f"File check result: {verified_all}")
 
     if verified_all:
-        target.update_model_hash(repo_id, revision, new_model_hash)
+        target.update_model_hash_for_repo(repo_id, revision, new_model_hash)
         print("Verified model hash updated.")
 
     return verified_all
+
+
+if __name__ == "__main__":
+    # Set the current working directory to the project root
+    import os
+    from pathlib import Path
+
+    project_dir = Path(__file__).parents[3]
+    os.chdir(project_dir)
+    print(f"Current working directory: {os.getcwd()}")
+
+    # Example usage with Hugging Face model
+    repo_id = "ryomo/malicious-code-test"
+    revision = "main"
+    verify_hf_model(repo_id, revision)
