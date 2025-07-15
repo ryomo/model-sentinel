@@ -1,4 +1,8 @@
-# Copilot Instructions: Coding Best Practices
+## AI Assistant
+
+- Always use context7 to look up library or API documentation when needed.
+
+# Coding Best Practices
 
 - Follow modern best practices for code style, readability, and maintainability, regardless of language.
 - Prioritize code consistency and clear naming conventions.
