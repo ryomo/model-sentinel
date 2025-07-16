@@ -109,11 +109,72 @@ class TargetHF(TargetBase):
         base_key = f"{repo_id}@{revision}" if revision else repo_id
         return f"hf/{base_key}"
 
+    def get_files_for_verification(self, repo_id: str, revision: str = None):
+        """
+        Get list of HF model files that need verification for GUI display.
 
-def verify_hf_model(repo_id, revision=None) -> bool:
+        Args:
+            repo_id: Hugging Face repository ID
+            revision: Model revision/branch
+
+        Returns:
+            List of file dictionaries with filename, content, and hash
+        """
+        files_info = []
+        hf_api = HfApi()
+
+        try:
+            model_info = hf_api.model_info(
+                repo_id=repo_id, revision=revision, files_metadata=True
+            )
+
+            for sibling in model_info.siblings:
+                if sibling.rfilename.endswith(".py"):
+                    content = self._download_file_content(
+                        hf_api, repo_id, revision, sibling.rfilename
+                    )
+                    if content is not None:
+                        files_info.append(
+                            {
+                                "filename": sibling.rfilename,
+                                "content": content,
+                                "hash": sibling.blob_id,
+                            }
+                        )
+        except Exception as e:
+            print(f"Error getting files for verification: {e}")
+
+        return files_info
+
+
+def verify_hf_model(repo_id, revision=None, gui=False) -> bool | dict:
     """
     Check if the model hash has changed and verify remote files.
+
+    Args:
+        repo_id: Hugging Face repository ID
+        revision: Model revision/branch
+        gui: If True, launch GUI for verification
+
+    Returns:
+        bool: True if verification successful (when gui=False)
+        dict: Detailed verification results (when gui=True)
     """
+
+    if gui:
+        # Launch GUI for verification
+        try:
+            from model_sentinel.gui import launch_verification_gui
+
+            launch_verification_gui(repo_id=repo_id, revision=revision)
+            # Return a simple result since GUI handles the interaction
+            return True
+        except ImportError:
+            print("GUI functionality requires gradio. Install with:")
+            print("pip install 'model-sentinel[gui]'")
+            return False
+
+    # CLI mode: original behavior
     target = TargetHF()
     new_model_hash = target.detect_model_changes(repo_id, revision=revision)
     if not new_model_hash:

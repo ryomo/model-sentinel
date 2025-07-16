@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Dict, List
 
 from model_sentinel.target.base import TargetBase
 
@@ -69,20 +70,83 @@ class TargetLocal(TargetBase):
         """Generate model key for data storage."""
         return f"local/{model_dir}"
 
+    def get_files_for_verification(self, model_dir: Path) -> List[Dict[str, str]]:
+        """
+        Get list of files that need verification for GUI display.
 
-def verify_local_model(model_dir: str | Path) -> bool:
+        Args:
+            model_dir: Path to the local model directory
+
+        Returns:
+            List of file dictionaries with filename, content, and hash
+        """
+        files_info = []
+        file_paths = self._get_files_by_pattern(model_dir, "*.py")
+
+        for file_path in file_paths:
+            file_hash = self._calculate_file_hash(file_path)
+            relative_file_path = file_path.relative_to(model_dir)
+            filename = str(relative_file_path)
+            content = self._read_file_content(file_path)
+
+            files_info.append(
+                {
+                    "filename": filename,
+                    "content": content,
+                    "hash": file_hash,
+                    "path": str(file_path),
+                }
+            )
+
+        return files_info
+
+
+def verify_local_model(model_dir: str | Path, gui=False) -> bool | dict:
     """
     Check if the local model hash has changed and verify local files.
+
+    Args:
+        model_dir: Path to the local model directory
+        gui: If True, return detailed results for GUI display
+
+    Returns:
+        bool: True if verification successful (when gui=False)
+        dict: Detailed verification results (when gui=True)
     """
     model_dir = Path(model_dir)
 
     # Check if the model directory exists
     if not model_dir.exists():
-        print(f"Model directory {model_dir} does not exist.")
-        return False
+        error_msg = f"Model directory {model_dir} does not exist."
+        if gui:
+            return {
+                "model_dir": str(model_dir),
+                "status": "error",
+                "model_hash_changed": False,
+                "files_verified": False,
+                "message": error_msg,
+                "files_info": [],
+            }
+        else:
+            print(error_msg)
+            return False
 
     target = TargetLocal()
     new_model_hash = target.detect_model_changes(model_dir)
+
+    if gui:
+        # Launch GUI for verification
+        try:
+            from model_sentinel.gui import launch_verification_gui
+
+            launch_verification_gui(model_dir=str(model_dir))
+            # Return a simple result since GUI handles the interaction
+            return True
+        except ImportError:
+            print("GUI functionality requires gradio. Install with:")
+            print("pip install 'model-sentinel[gui]'")
+            return False
+    # CLI mode: original behavior
     if not new_model_hash:
         print("No changes detected in the model directory.")
         return True

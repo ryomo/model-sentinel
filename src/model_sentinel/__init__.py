@@ -1,3 +1,25 @@
 from .target.hf import TargetHF, verify_hf_model
 from .target.local import TargetLocal, verify_local_model
 from .verify.verify import Verify
+
+# GUI functionality (optional dependency)
+try:
+    from .gui import main as launch_gui
+
+    __all__ = [
+        "TargetHF",
+        "verify_hf_model",
+        "TargetLocal",
+        "verify_local_model",
+        "Verify",
+        "launch_gui",
+    ]
+except ImportError:
+    # Gradio not installed
+    __all__ = [
+        "TargetHF",
+        "verify_hf_model",
+        "TargetLocal",
+        "verify_local_model",
+        "Verify",
+    ]
