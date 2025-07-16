@@ -13,6 +13,9 @@ __pycache__/
 
 # misc
 *.log
+
+# Internal docs
+docs/internal/
 MEMO.md
 
 !.gitkeep
