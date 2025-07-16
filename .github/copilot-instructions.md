@@ -1,6 +1,7 @@
 ## AI Assistant
 
 - Always use context7 to look up library or API documentation when needed.
+- If you are unsure about a specific implementation detail, ask for clarification.
 
 # Coding Best Practices
 
