@@ -2,6 +2,9 @@ from huggingface_hub import HfApi
 
 from model_sentinel.target.base import TargetBase
 
+# Constants
+VERIFICATION_FAILED_MESSAGE = "Model verification failed. Exiting for security reasons."
+
 
 class TargetHF(TargetBase):
     """
@@ -147,7 +150,7 @@ class TargetHF(TargetBase):
         return files_info
 
 
-def verify_hf_model(repo_id, revision=None, gui=False) -> bool | dict:
+def verify_hf_model(repo_id, revision=None, gui=False, exit_on_reject=True) -> bool | dict:
     """
     Check if the model hash has changed and verify remote files.
 
@@ -155,6 +158,7 @@ def verify_hf_model(repo_id, revision=None, gui=False) -> bool | dict:
         repo_id: Hugging Face repository ID
         revision: Model revision/branch
         gui: If True, launch GUI for verification
+        exit_on_reject: If True, exit the process when verification fails
 
     Returns:
         bool: True if verification successful (when gui=False)
@@ -172,6 +176,9 @@ def verify_hf_model(repo_id, revision=None, gui=False) -> bool | dict:
         except ImportError:
             print("GUI functionality requires gradio. Install with:")
             print("pip install 'model-sentinel[gui]'")
+            if exit_on_reject:
+                print(VERIFICATION_FAILED_MESSAGE)
+                exit(1)
             return False
 
     # CLI mode: original behavior
@@ -189,8 +196,12 @@ def verify_hf_model(repo_id, revision=None, gui=False) -> bool | dict:
     if verified_all:
         target.update_model_hash_for_repo(repo_id, revision, new_model_hash)
         print("Verified model hash updated.")
-
-    return verified_all
+        return verified_all
+    else:
+        if exit_on_reject:
+            print(VERIFICATION_FAILED_MESSAGE)
+            exit(1)
+        return verified_all
 
 
 if __name__ == "__main__":

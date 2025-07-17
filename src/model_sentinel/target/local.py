@@ -3,6 +3,9 @@ from typing import Dict, List
 
 from model_sentinel.target.base import TargetBase
 
+# Constants
+VERIFICATION_FAILED_MESSAGE = "Model verification failed. Exiting for security reasons."
+
 
 class TargetLocal(TargetBase):
     """
@@ -101,13 +104,14 @@ class TargetLocal(TargetBase):
         return files_info
 
 
-def verify_local_model(model_dir: str | Path, gui=False) -> bool | dict:
+def verify_local_model(model_dir: str | Path, gui=False, exit_on_reject=True) -> bool | dict:
     """
     Check if the local model hash has changed and verify local files.
 
     Args:
         model_dir: Path to the local model directory
         gui: If True, return detailed results for GUI display
+        exit_on_reject: If True, exit the process when verification fails
 
     Returns:
         bool: True if verification successful (when gui=False)
@@ -129,6 +133,9 @@ def verify_local_model(model_dir: str | Path, gui=False) -> bool | dict:
             }
         else:
             print(error_msg)
+            if exit_on_reject:
+                print(VERIFICATION_FAILED_MESSAGE)
+                exit(1)
             return False
 
     target = TargetLocal()
@@ -145,7 +152,11 @@ def verify_local_model(model_dir: str | Path, gui=False) -> bool | dict:
         except ImportError:
             print("GUI functionality requires gradio. Install with:")
             print("pip install 'model-sentinel[gui]'")
+            if exit_on_reject:
+                print(VERIFICATION_FAILED_MESSAGE)
+                exit(1)
             return False
+
     # CLI mode: original behavior
     if not new_model_hash:
         print("No changes detected in the model directory.")
@@ -160,8 +171,12 @@ def verify_local_model(model_dir: str | Path, gui=False) -> bool | dict:
         model_key = target._get_model_key(model_dir)
         target.update_model_hash(model_key, new_model_hash)
         print("Verified model hash updated.")
-
-    return verified_all
+        return verified_all
+    else:
+        if exit_on_reject:
+            print(VERIFICATION_FAILED_MESSAGE)
+            exit(1)
+        return verified_all
 
 
 if __name__ == "__main__":
