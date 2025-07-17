@@ -90,3 +90,109 @@ class Verify:
         except Exception as e:
             print(f"Error deleting hash file: {e}")
             return False
+
+    def get_unified_verification_result(self, target_spec: str) -> dict:
+        """
+        Get verification result for any model type (unified interface).
+
+        Args:
+            target_spec: Model specification (repo_id for HF, path for local)
+
+        Returns:
+            Unified verification result dictionary
+        """
+        # Auto-detect target type
+        if self._is_local_path(target_spec):
+            return self._verify_local_model(target_spec)
+        else:
+            return self._verify_hf_model(target_spec)
+
+    def _is_local_path(self, target_spec: str) -> bool:
+        """Check if target_spec is a local path."""
+        return Path(target_spec).exists()
+
+    def _verify_hf_model(self, repo_id: str) -> dict:
+        """Verify HF model and return result."""
+        from model_sentinel.target.hf import TargetHF
+
+        target = TargetHF()
+        revision = "main"  # Default revision for GUI
+        new_model_hash = target.detect_model_changes(repo_id, revision)
+
+        result = {
+            "target_type": "hf",
+            "repo_id": repo_id,
+            "revision": revision,
+            "status": "success",
+            "model_hash_changed": bool(new_model_hash),
+            "new_model_hash": new_model_hash,
+            "files_verified": False,
+            "message": "",
+            "files_info": [],
+            "display_info": [
+                f"**Repository:** {repo_id}",
+                f"**Revision:** {revision}"
+            ]
+        }
+
+        if not new_model_hash:
+            result["message"] = "No changes detected in the model hash."
+            result["files_verified"] = True
+        else:
+            files_info = target.get_files_for_verification(repo_id, revision)
+            result["files_info"] = files_info
+            result["message"] = f"Found {len(files_info)} files that need verification."
+
+        return result
+
+    def _verify_local_model(self, model_dir: str) -> dict:
+        """Verify local model and return result."""
+        from pathlib import Path
+        from model_sentinel.target.local import TargetLocal
+
+        model_path = Path(model_dir)
+        if not model_path.exists():
+            raise FileNotFoundError(f"Model directory {model_dir} does not exist.")
+
+        target = TargetLocal()
+        new_model_hash = target.detect_model_changes(model_path)
+
+        result = {
+            "target_type": "local",
+            "model_dir": str(model_path),
+            "status": "success",
+            "model_hash_changed": bool(new_model_hash),
+            "new_model_hash": new_model_hash,
+            "files_verified": False,
+            "message": "",
+            "files_info": [],
+            "display_info": [
+                f"**Model Directory:** {model_path}"
+            ]
+        }
+
+        if not new_model_hash:
+            result["message"] = "No changes detected in the model directory."
+            result["files_verified"] = True
+        else:
+            files_info = target.get_files_for_verification(model_path)
+            result["files_info"] = files_info
+            result["message"] = f"Found {len(files_info)} files that need verification."
+
+        return result
+
+    def get_model_key_from_result(self, verification_result: dict) -> str:
+        """Get model key from verification result."""
+        target_type = verification_result.get("target_type")
+
+        if target_type == "hf" or "repo_id" in verification_result:
+            # HF model
+            repo_id = verification_result["repo_id"]
+            revision = verification_result.get("revision")
+            return f"hf/{repo_id}@{revision}" if revision else f"hf/{repo_id}"
+        elif target_type == "local" or "model_dir" in verification_result:
+            # Local model
+            model_dir = verification_result["model_dir"]
+            return f"local/{model_dir}"
+        else:
+            raise ValueError("Unable to determine model type")

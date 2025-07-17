@@ -4,7 +4,7 @@ from .verify.verify import Verify
 
 # GUI functionality (optional dependency)
 try:
-    from .gui import main as launch_gui
+    from .gui import launch_verification_gui as launch_gui
 
     __all__ = [
         "TargetHF",
