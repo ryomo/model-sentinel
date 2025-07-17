@@ -46,133 +46,13 @@ def create_verification_gui(
         # Display verification summary
         with gr.Row():
             with gr.Column():
-                gr.Markdown("## 📋 Verification Summary")
-
-                # Basic info
-                if "repo_id" in verification_result:
-                    gr.Markdown(f"**Repository:** {verification_result['repo_id']}")
-                    if verification_result.get("revision"):
-                        gr.Markdown(f"**Revision:** {verification_result['revision']}")
-                elif "model_dir" in verification_result:
-                    gr.Markdown(
-                        f"**Model Directory:** {verification_result['model_dir']}"
-                    )
-
-                # Status
-                status = _format_status(verification_result.get("status", "unknown"))
-                gr.Markdown(f"**Status:** {status}")
-                gr.Markdown(
-                    f"**Message:** {verification_result.get('message', 'No message')}"
-                )
-
-                # Hash info
-                if verification_result.get("model_hash_changed"):
-                    gr.Markdown("**Model Hash:** 🔄 Changed")
-                    if verification_result.get("new_model_hash"):
-                        hash_short = verification_result["new_model_hash"][:16] + "..."
-                        gr.Markdown(f"**New Hash:** `{hash_short}`")
-                else:
-                    gr.Markdown("**Model Hash:** ✅ Unchanged")
+                _create_verification_summary(verification_result)
 
         # File verification section
         if files_to_verify and len(files_to_verify) > 0:
-            gr.Markdown("## 📝 Files Requiring Verification")
-            gr.Markdown(
-                "Please review the following files and approve if they are safe:"
-            )
-
-            # Create tabs for each file
-            with gr.Tabs():
-                file_approval_states = {}
-
-                for i, file_info in enumerate(files_to_verify):
-                    filename = file_info.get("filename", f"File {i+1}")
-                    content = file_info.get("content", "No content available")
-
-                    with gr.Tab(f"📄 {filename}"):
-                        with gr.Row():
-                            with gr.Column(scale=3):
-                                # File content display
-                                gr.Code(
-                                    value=content,
-                                    language="python",
-                                    label=f"Content of {filename}",
-                                    lines=20,
-                                    max_lines=30,
-                                )
-
-                            with gr.Column(scale=1):
-                                # File info and approval
-                                gr.Markdown(f"**File:** {filename}")
-                                if "hash" in file_info:
-                                    hash_short = file_info["hash"][:16] + "..."
-                                    gr.Markdown(f"**Hash:** `{hash_short}`")
-
-                                # Approval buttons
-                                approve_btn = gr.Button(
-                                    "✅ Approve & Trust",
-                                    variant="primary",
-                                    elem_id=f"approve_{i}",
-                                )
-                                reject_btn = gr.Button(
-                                    "❌ Reject",
-                                    variant="secondary",
-                                    elem_id=f"reject_{i}",
-                                )
-
-                                approval_status = gr.Textbox(
-                                    value=STATUS_PENDING,
-                                    label="Status",
-                                    interactive=False,
-                                    elem_id=f"status_{i}",
-                                )
-
-                                # Store approval state
-                                file_approval_states[filename] = {
-                                    "approve_btn": approve_btn,
-                                    "reject_btn": reject_btn,
-                                    "status": approval_status,
-                                    "approved": False,
-                                }
-
-                                # Button handlers
-                                approve_btn.click(
-                                    lambda: STATUS_SUCCESS, outputs=approval_status
-                                )
-                                reject_btn.click(
-                                    lambda: STATUS_FAILED, outputs=approval_status
-                                )
-
-            # Final approval section
-            gr.Markdown("## 🚀 Final Verification")
-            with gr.Row():
-                final_approve_btn = gr.Button(
-                    "🛡️ Complete Verification", variant="primary", size="lg"
-                )
-                final_status = gr.Textbox(
-                    value="Review files above and click to complete verification",
-                    label="Verification Status",
-                    interactive=False,
-                )
-
-                def complete_verification():
-                    # In a real implementation, this would update the hash file
-                    return "✅ Verification completed! All approved files have been recorded."
-
-                final_approve_btn.click(complete_verification, outputs=final_status)
-
+            _create_file_verification_section(files_to_verify, verification_result)
         else:
-            # No files to verify
-            if verification_result.get("files_verified"):
-                gr.Markdown("## ✅ All Files Verified")
-                gr.Markdown(
-                    "No file changes detected or all files are already verified."
-                )
-            else:
-                gr.Markdown("## ⚠️ Verification Issues")
-                gr.Markdown(
-                    "Some files could not be verified. Check the logs for details."
-                )
+            _create_no_files_section(verification_result)
 
     return demo
 
@@ -216,6 +96,10 @@ def save_verification_results(
         return "No changes to save."
 
     try:
+        print(
+            f"🔍 Saving verification results for {len(approved_files)} approved files: {approved_files}"
+        )
+
         verify = Verify()
         data = verify.load_verified_hashes()
 
@@ -232,6 +116,8 @@ def save_verification_results(
         else:
             return "❌ Error: Unable to determine model type"
 
+        print(f"🔑 Model key: {model_key}")
+
         # Initialize model data if not exists
         if model_key not in data:
             data[model_key] = {"model_hash": None, "files": {}}
@@ -239,6 +125,9 @@ def save_verification_results(
         # Update model hash
         if verification_result.get("new_model_hash"):
             data[model_key]["model_hash"] = verification_result["new_model_hash"]
+            print(
+                f"🔄 Updated model hash: {verification_result['new_model_hash'][:16]}..."
+            )
 
         # Update file hashes for approved files
         files_info = verification_result.get("files_info", [])
@@ -251,14 +140,18 @@ def save_verification_results(
             if filename in approved_files and file_hash:
                 data[model_key]["files"][filename] = file_hash
                 approved_count += 1
+                print(f"✅ Approved file: {filename} - {file_hash[:16]}...")
 
         # Save to file
         verify.save_verified_hashes(data)
+        print("💾 Saved verification data to hash file")
 
         return f"✅ Verification completed! {approved_count} files approved and saved."
 
     except Exception as e:
-        return f"❌ Error saving verification results: {str(e)}"
+        error_msg = f"❌ Error saving verification results: {str(e)}"
+        print(error_msg)
+        return error_msg
 
 
 # GUI constants
@@ -398,6 +291,165 @@ def _show_error_gui(error_message: str):
     demo.launch(
         share=False, inbrowser=True, server_name="127.0.0.1", server_port=GUI_PORT
     )
+
+
+def _create_file_verification_tab(
+    file_info: Dict[str, Any], file_index: int
+) -> Dict[str, Any]:
+    """Create a single file verification tab with approval controls."""
+    filename = file_info.get("filename", f"File {file_index+1}")
+    content = file_info.get("content", "No content available")
+
+    with gr.Tab(f"📄 {filename}"):
+        with gr.Row():
+            with gr.Column(scale=3):
+                # File content display
+                gr.Code(
+                    value=content,
+                    language="python",
+                    label=f"Content of {filename}",
+                    lines=20,
+                    max_lines=30,
+                )
+
+            with gr.Column(scale=1):
+                # File info and approval
+                gr.Markdown(f"**File:** {filename}")
+                if "hash" in file_info:
+                    hash_short = file_info["hash"][:16] + "..."
+                    gr.Markdown(f"**Hash:** `{hash_short}`")
+
+                # Approval buttons
+                approve_btn = gr.Button(
+                    "✅ Approve & Trust",
+                    variant="primary",
+                    elem_id=f"approve_{file_index}",
+                )
+                reject_btn = gr.Button(
+                    "❌ Reject",
+                    variant="secondary",
+                    elem_id=f"reject_{file_index}",
+                )
+
+                approval_status = gr.Textbox(
+                    value=STATUS_PENDING,
+                    label="Status",
+                    interactive=False,
+                    elem_id=f"status_{file_index}",
+                )
+
+                # Hidden state to track approval (0=pending, 1=approved, -1=rejected)
+                approval_state = gr.Number(
+                    value=0, visible=False, elem_id=f"state_{file_index}"
+                )
+
+                # Button handlers
+                approve_btn.click(
+                    lambda: (1, STATUS_SUCCESS),
+                    outputs=[approval_state, approval_status],
+                )
+                reject_btn.click(
+                    lambda: (-1, STATUS_FAILED),
+                    outputs=[approval_state, approval_status],
+                )
+
+    return {
+        "filename": filename,
+        "approval_state": approval_state,
+        "approval_status": approval_status,
+    }
+
+
+def _create_verification_summary(verification_result: Dict[str, Any]) -> None:
+    """Create the verification summary section."""
+    gr.Markdown("## 📋 Verification Summary")
+
+    # Basic info
+    if "repo_id" in verification_result:
+        gr.Markdown(f"**Repository:** {verification_result['repo_id']}")
+        if verification_result.get("revision"):
+            gr.Markdown(f"**Revision:** {verification_result['revision']}")
+    elif "model_dir" in verification_result:
+        gr.Markdown(f"**Model Directory:** {verification_result['model_dir']}")
+
+    # Status
+    status = _format_status(verification_result.get("status", "unknown"))
+    gr.Markdown(f"**Status:** {status}")
+    gr.Markdown(f"**Message:** {verification_result.get('message', 'No message')}")
+
+    # Hash info
+    if verification_result.get("model_hash_changed"):
+        gr.Markdown("**Model Hash:** 🔄 Changed")
+        if verification_result.get("new_model_hash"):
+            hash_short = verification_result["new_model_hash"][:16] + "..."
+            gr.Markdown(f"**New Hash:** `{hash_short}`")
+    else:
+        gr.Markdown("**Model Hash:** ✅ Unchanged")
+
+
+def _create_file_verification_section(
+    files_to_verify: List[Dict[str, Any]], verification_result: Dict[str, Any]
+) -> List[Dict[str, Any]]:
+    """Create the file verification section with tabs and approval controls."""
+    gr.Markdown("## 📝 Files Requiring Verification")
+    gr.Markdown("Please review the following files and approve if they are safe:")
+
+    # Create state variables for each file approval
+    file_approval_components = []
+
+    # Create tabs for each file
+    with gr.Tabs():
+        for i, file_info in enumerate(files_to_verify):
+            component = _create_file_verification_tab(file_info, i)
+            file_approval_components.append(component)
+
+    # Final approval section
+    gr.Markdown("## 🚀 Final Verification")
+    with gr.Row():
+        final_approve_btn = gr.Button(
+            "🛡️ Complete Verification", variant="primary", size="lg"
+        )
+        final_status = gr.Textbox(
+            value="Review files above and click to complete verification",
+            label="Verification Status",
+            interactive=False,
+        )
+
+        def complete_verification(*approval_states):
+            # Get list of approved files based on state values
+            approved_files = []
+            for i, state_value in enumerate(approval_states):
+                if state_value == 1:  # Approved
+                    filename = file_approval_components[i]["filename"]
+                    approved_files.append(filename)
+
+            if not approved_files:
+                return "⚠️ No files approved. Please approve at least one file to save verification results."
+
+            # Save verification results for approved files only
+            result = save_verification_results(verification_result, approved_files)
+            return result
+
+        # Get all approval state components for input
+        approval_state_inputs = [
+            comp["approval_state"] for comp in file_approval_components
+        ]
+
+        final_approve_btn.click(
+            complete_verification, inputs=approval_state_inputs, outputs=final_status
+        )
+
+    return file_approval_components
+
+
+def _create_no_files_section(verification_result: Dict[str, Any]) -> None:
+    """Create section when no files need verification."""
+    if verification_result.get("files_verified"):
+        gr.Markdown("## ✅ All Files Verified")
+        gr.Markdown("No file changes detected or all files are already verified.")
+    else:
+        gr.Markdown("## ⚠️ Verification Issues")
+        gr.Markdown("Some files could not be verified. Check the logs for details.")
 
 
 def main():
