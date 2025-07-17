@@ -293,72 +293,6 @@ def _show_error_gui(error_message: str):
     )
 
 
-def _create_file_verification_tab(
-    file_info: Dict[str, Any], file_index: int
-) -> Dict[str, Any]:
-    """Create a single file verification tab with approval controls."""
-    filename = file_info.get("filename", f"File {file_index+1}")
-    content = file_info.get("content", "No content available")
-
-    with gr.Tab(f"📄 {filename}"):
-        with gr.Row():
-            with gr.Column(scale=3):
-                # File content display
-                gr.Code(
-                    value=content,
-                    language="python",
-                    label=f"Content of {filename}",
-                    lines=20,
-                    max_lines=30,
-                )
-
-            with gr.Column(scale=1):
-                # File info and approval
-                gr.Markdown(f"**File:** {filename}")
-                if "hash" in file_info:
-                    hash_short = file_info["hash"][:16] + "..."
-                    gr.Markdown(f"**Hash:** `{hash_short}`")
-
-                # Approval buttons
-                approve_btn = gr.Button(
-                    "✅ Approve & Trust",
-                    variant="primary",
-                    elem_id=f"approve_{file_index}",
-                )
-                reject_btn = gr.Button(
-                    "❌ Reject",
-                    variant="secondary",
-                    elem_id=f"reject_{file_index}",
-                )
-
-                approval_status = gr.Textbox(
-                    value=STATUS_PENDING,
-                    label="Status",
-                    interactive=False,
-                    elem_id=f"status_{file_index}",
-                )
-
-                # Hidden state to track approval (0=pending, 1=approved, -1=rejected)
-                approval_state = gr.Number(
-                    value=0, visible=False, elem_id=f"state_{file_index}"
-                )
-
-                # Button handlers
-                approve_btn.click(
-                    lambda: (1, STATUS_SUCCESS),
-                    outputs=[approval_state, approval_status],
-                )
-                reject_btn.click(
-                    lambda: (-1, STATUS_FAILED),
-                    outputs=[approval_state, approval_status],
-                )
-
-    return {
-        "filename": filename,
-        "approval_state": approval_state,
-        "approval_status": approval_status,
-    }
-
 
 def _create_verification_summary(verification_result: Dict[str, Any]) -> None:
     """Create the verification summary section."""
@@ -387,21 +321,204 @@ def _create_verification_summary(verification_result: Dict[str, Any]) -> None:
         gr.Markdown("**Model Hash:** ✅ Unchanged")
 
 
+def _create_file_selection_handlers(
+    files_to_verify: List[Dict[str, Any]],
+    file_approval_components: List[Dict[str, Any]],
+    file_buttons: List[gr.Button],
+    selected_file_md: gr.Markdown,
+    file_content: gr.Code,
+    approval_controls: gr.Row,
+    file_hash_display: gr.Markdown,
+    current_approval_status: gr.Textbox,
+    selected_file_index: gr.Number,
+    approve_btn: gr.Button,
+    reject_btn: gr.Button
+):
+    """Set up file selection and approval handlers."""
+
+    def select_file(file_index):
+        """Handle file selection."""
+        if file_index < 0 or file_index >= len(files_to_verify):
+            return (
+                "*Select a file from the left to preview*",
+                "",
+                gr.update(visible=False),
+                gr.update(visible=False),
+                "",
+                STATUS_PENDING,
+                file_index
+            )
+
+        file_info = files_to_verify[file_index]
+        filename = file_info.get("filename", f"File {file_index+1}")
+        content = file_info.get("content", "No content available")
+
+        # File info markdown
+        file_md = f"**File:** {filename}"
+        if "hash" in file_info:
+            hash_short = file_info["hash"][:16] + "..."
+            file_hash_md = f"**Hash:** `{hash_short}`"
+        else:
+            file_hash_md = "**Hash:** Not available"
+
+        # Get current approval status
+        current_status = file_approval_components[file_index]["approval_status"].value or STATUS_PENDING
+
+        return (
+            file_md,
+            content,
+            gr.update(visible=True),
+            gr.update(visible=True),
+            file_hash_md,
+            current_status,
+            file_index
+        )
+
+    def approve_current_file(selected_index):
+        """Approve currently selected file."""
+        if 0 <= selected_index < len(file_approval_components):
+            file_approval_components[selected_index]["approval_state"].value = 1
+            return STATUS_SUCCESS
+        return STATUS_PENDING
+
+    def reject_current_file(selected_index):
+        """Reject currently selected file."""
+        if 0 <= selected_index < len(file_approval_components):
+            file_approval_components[selected_index]["approval_state"].value = -1
+            return STATUS_FAILED
+        return STATUS_PENDING
+
+    # Set up file button click handlers
+    for i, btn in enumerate(file_buttons):
+        btn.click(
+            lambda idx=i: select_file(idx),
+            outputs=[
+                selected_file_md,
+                file_content,
+                file_content,
+                approval_controls,
+                file_hash_display,
+                current_approval_status,
+                selected_file_index
+            ]
+        )
+
+    # Set up approval button handlers
+    approve_btn.click(
+        approve_current_file,
+        inputs=[selected_file_index],
+        outputs=[current_approval_status]
+    )
+
+    reject_btn.click(
+        reject_current_file,
+        inputs=[selected_file_index],
+        outputs=[current_approval_status]
+    )
+
+
 def _create_file_verification_section(
     files_to_verify: List[Dict[str, Any]], verification_result: Dict[str, Any]
 ) -> List[Dict[str, Any]]:
-    """Create the file verification section with tabs and approval controls."""
+    """Create the file verification section with left file list and right content preview."""
     gr.Markdown("## 📝 Files Requiring Verification")
     gr.Markdown("Please review the following files and approve if they are safe:")
 
-    # Create state variables for each file approval
+    # Create state variables for each file
     file_approval_components = []
 
-    # Create tabs for each file
-    with gr.Tabs():
-        for i, file_info in enumerate(files_to_verify):
-            component = _create_file_verification_tab(file_info, i)
-            file_approval_components.append(component)
+    # Create main layout with left file list and right content area
+    with gr.Row():
+        # Left column: File list
+        with gr.Column(scale=1, min_width=300):
+            gr.Markdown("### 📁 Files to Review")
+
+            # File selection buttons
+            file_buttons = []
+            for i, file_info in enumerate(files_to_verify):
+                filename = file_info.get("filename", f"File {i+1}")
+                btn = gr.Button(
+                    f"📄 {filename}",
+                    variant="secondary",
+                    elem_id=f"file_btn_{i}",
+                    size="sm"
+                )
+                file_buttons.append(btn)
+
+                # Create approval state for this file
+                approval_state = gr.Number(
+                    value=0, visible=False, elem_id=f"state_{i}"
+                )
+                approval_status = gr.Textbox(
+                    value=STATUS_PENDING,
+                    visible=False,
+                    elem_id=f"status_{i}",
+                )
+
+                file_approval_components.append({
+                    "filename": filename,
+                    "approval_state": approval_state,
+                    "approval_status": approval_status,
+                    "file_info": file_info
+                })
+
+        # Right column: Content preview and approval controls
+        with gr.Column(scale=3):
+            gr.Markdown("### 📋 File Preview")
+
+            # Selected file info
+            selected_file_md = gr.Markdown("*Select a file from the left to preview*")
+
+            # File content display
+            file_content = gr.Code(
+                value="",
+                language="python",
+                label="File Content",
+                lines=20,
+                max_lines=30,
+                visible=False
+            )
+
+            # File approval controls
+            with gr.Row(visible=False) as approval_controls:
+                with gr.Column(scale=2):
+                    # File info display
+                    file_hash_display = gr.Markdown("")
+
+                with gr.Column(scale=1):
+                    # Approval buttons
+                    approve_btn = gr.Button(
+                        "✅ Approve & Trust",
+                        variant="primary",
+                    )
+                    reject_btn = gr.Button(
+                        "❌ Reject",
+                        variant="secondary",
+                    )
+
+                    current_approval_status = gr.Textbox(
+                        value=STATUS_PENDING,
+                        label="Status",
+                        interactive=False,
+                    )
+
+    # Hidden state to track currently selected file
+    selected_file_index = gr.Number(value=-1, visible=False)
+
+    # Set up all event handlers
+    _create_file_selection_handlers(
+        files_to_verify,
+        file_approval_components,
+        file_buttons,
+        selected_file_md,
+        file_content,
+        approval_controls,
+        file_hash_display,
+        current_approval_status,
+        selected_file_index,
+        approve_btn,
+        reject_btn
+    )
 
     # Final approval section
     gr.Markdown("## 🚀 Final Verification")
@@ -415,12 +532,13 @@ def _create_file_verification_section(
             interactive=False,
         )
 
-        def complete_verification(*approval_states):
+        def complete_verification():
             # Get list of approved files based on state values
             approved_files = []
-            for i, state_value in enumerate(approval_states):
+            for comp in file_approval_components:
+                state_value = comp["approval_state"].value
                 if state_value == 1:  # Approved
-                    filename = file_approval_components[i]["filename"]
+                    filename = comp["filename"]
                     approved_files.append(filename)
 
             if not approved_files:
@@ -430,13 +548,9 @@ def _create_file_verification_section(
             result = save_verification_results(verification_result, approved_files)
             return result
 
-        # Get all approval state components for input
-        approval_state_inputs = [
-            comp["approval_state"] for comp in file_approval_components
-        ]
-
         final_approve_btn.click(
-            complete_verification, inputs=approval_state_inputs, outputs=final_status
+            complete_verification,
+            outputs=[final_status]
         )
 
     return file_approval_components
