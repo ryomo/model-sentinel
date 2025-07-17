@@ -3,6 +3,7 @@
 - **Always use context7 to look up library or API documentation when needed.**
 - **NEVER run git commands or commit changes.**
   - However, when appropriate, suggest recommended git commands or commit messages in the chat, but do not execute them. The user will handle all git operations.
+  - Always write commit messages in English.
 - **Terminal Management:**
   - Always inform the user when background processes are running and should be manually terminated.
 - **Cleanup:**
