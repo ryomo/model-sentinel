@@ -13,16 +13,19 @@ A security verification tool for model scripts - Detects and verifies changes in
 ## Installation
 
 ### Basic Version (CLI only)
+
 ```bash
 pip install model-sentinel
 ```
 
 ### GUI Version
+
 ```bash
 pip install "model-sentinel[gui]"
 ```
 
 ### Development Environment (uv)
+
 ```bash
 # Clone repository
 git clone https://github.com/ryomo/model-sentinel.git
@@ -78,40 +81,43 @@ result = verify_hf_model("ryomo/malicious-code-test", gui=True)
 ### GUI Usage
 
 1. **Launch GUI**:
-   ```bash   # Launch GUI with specified model
-   model-sentinel --gui --repo ryomo/malicious-code-test
 
-   # Launch GUI with local model
-   model-sentinel --gui --local ./my-model-directory
+    ```bash # Launch GUI with specified model
+    model-sentinel --gui --repo ryomo/malicious-code-test
 
-   # Launch GUI without model specification (can specify later)
-   model-sentinel --gui
+    # Launch GUI with local model
+    model-sentinel --gui --local ./my-model-directory
 
-   # Or run directly as Python module
-   python -m model_sentinel.gui --repo ryomo/malicious-code-test
-   ```
+    # Launch GUI without model specification (can specify later)
+    model-sentinel --gui
+
+    # Or run directly as Python module
+    python -m model_sentinel.gui --repo ryomo/malicious-code-test
+    ```
 
 2. **Verification Process**:
-   - Verification of specified model runs automatically
-   - If changed files are found, review content in GUI
-   - Click approve button if deemed safe
-   - Verification results are saved to hash file
+
+    - Verification of specified model runs automatically
+    - If changed files are found, review content in GUI
+    - Click approve button if deemed safe
+    - Verification results are saved to hash file
 
 3. **Practical Usage Example (verification before script execution)**:
-   ```python
-   # scripts/your_inference.py
-   from model_sentinel import verify_hf_model   def main():
-       REPO_NAME = "ryomo/malicious-code-test"
 
-       # Verify before script execution (GUI version)
-       if not verify_hf_model(REPO_NAME, gui=True):
-           print("Model verification failed!")
-           return
+    ```python
+    # scripts/your_inference.py
+    from model_sentinel import verify_hf_model   def main():
+        REPO_NAME = "ryomo/malicious-code-test"
 
-       # Use model safely after verification
-       model = AutoModelForCausalLM.from_pretrained(REPO_NAME)
-       # ...
-   ```
+        # Verify before script execution (GUI version)
+        if not verify_hf_model(REPO_NAME, gui=True):
+            print("Model verification failed!")
+            return
+
+        # Use model safely after verification
+        model = AutoModelForCausalLM.from_pretrained(REPO_NAME)
+        # ...
+    ```
 
 ## Verification Process
 
