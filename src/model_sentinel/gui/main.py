@@ -24,6 +24,7 @@ from .verification import get_verification_result
 
 # Global variable to store verification result from GUI
 _gui_verification_result = None
+_gui_completion_requested = False
 
 
 def launch_verification_gui(
@@ -40,10 +41,11 @@ def launch_verification_gui(
     Returns:
         bool: True if verification successful and all files approved, False otherwise
     """
-    global _gui_verification_result
+    global _gui_verification_result, _gui_completion_requested
 
     # Reset global state
     _gui_verification_result = None
+    _gui_completion_requested = False
 
     if repo_id:
         try:
@@ -60,12 +62,16 @@ def launch_verification_gui(
             print(f"Error accessing model directory: {str(e)}")
             return False
     else:
-        print("Error: Either repo_id or model_dir must be specified")
+        demo = create_simple_interface()
+        _launch_demo(demo, "Model Sentinel GUI")
         return False
 
 
 def _launch_gui_with_result(result: Dict[str, Any], model_type: str) -> bool:
     """Launch GUI with verification result and wait for completion."""
+    import threading
+    import time
+
     files_to_verify = []
     if result.get("model_hash_changed") and result.get("files_info"):
         files_to_verify = result["files_info"]
@@ -75,16 +81,55 @@ def _launch_gui_with_result(result: Dict[str, Any], model_type: str) -> bool:
     print(f"🚀 Launching {model_type} model verification GUI")
     print(GUI_URL)
 
-    # Launch and wait for completion (blocking)
+    # If no files to verify (already verified), auto-close after short display
+    if not files_to_verify:
+        demo.launch(
+            share=False,
+            inbrowser=True,
+            server_name="127.0.0.1",
+            server_port=GUI_PORT,
+            prevent_thread_lock=True
+        )
+        print("No files to verify. Displaying result for 5 seconds...")
+        time.sleep(5)
+        demo.close()
+        print("✅ GUI display completed. Server closed.")
+        return True
+
+    def monitor_completion():
+        """Monitor completion flag and shutdown server"""
+        global _gui_completion_requested
+        while not _gui_completion_requested:
+            time.sleep(0.5)  # Check every 0.5 seconds
+
+        # Wait a bit to show completion message, then shutdown
+        time.sleep(2)
+
+        print("🔄 Closing Gradio server...")
+        gr.close_all()
+        print("✅ Gradio server closed.")
+
+    # Launch demo
     demo.launch(
         share=False,
         inbrowser=True,
         server_name="127.0.0.1",
         server_port=GUI_PORT,
-        prevent_thread_lock=False  # Make it blocking
+        prevent_thread_lock=True
     )
 
-    # After GUI closes, return the result
+    # Start background completion monitoring
+    monitor_thread = threading.Thread(target=monitor_completion, daemon=True)
+    monitor_thread.start()
+
+    # Wait for completion in main thread
+    while not _gui_completion_requested:
+        time.sleep(0.1)
+
+    # Wait for monitor thread to finish
+    monitor_thread.join(timeout=5)
+
+    # Return the verification result
     return _gui_verification_result if _gui_verification_result is not None else False
 
 
@@ -176,7 +221,7 @@ def _create_final_verification_section(
     close_browser_html = gr.HTML(value="", visible=True)
 
     def complete_verification_simple(*checkbox_values):
-        global _gui_verification_result
+        global _gui_verification_result, _gui_completion_requested
 
         # Get list of approved files based on checkbox values
         approved_files = []
@@ -200,9 +245,12 @@ def _create_final_verification_section(
             <div style="background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; padding: 20px; border-radius: 5px; margin: 20px 0; text-align: center; font-family: Arial, sans-serif;">
                 <h3 style="margin: 0 0 10px 0;">🎉 Verification Complete!</h3>
                 <p style="margin: 0; font-size: 16px;">All files have been successfully verified and saved.</p>
-                <p style="margin: 10px 0 0 0; font-size: 14px; color: #6c757d;"><strong>You can now close this browser tab.</strong></p>
+                <p style="margin: 10px 0 0 0; font-size: 14px; color: #6c757d;"><strong>The server will close automatically in a few seconds.</strong></p>
             </div>
             """
+
+            # Set completion flag to trigger server shutdown
+            _gui_completion_requested = True
 
             return "✅ Verification completed successfully!", close_script
 
@@ -215,9 +263,12 @@ def _create_final_verification_section(
             <div style="background-color: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; padding: 20px; border-radius: 5px; margin: 20px 0; text-align: center; font-family: Arial, sans-serif;">
                 <h3 style="margin: 0 0 10px 0;">❌ Verification Failed</h3>
                 <p style="margin: 0; font-size: 16px;">Not all files were approved. The verification process has been cancelled.</p>
-                <p style="margin: 10px 0 0 0; font-size: 14px; color: #6c757d;"><strong>You can close this browser tab.</strong></p>
+                <p style="margin: 10px 0 0 0; font-size: 14px; color: #6c757d;"><strong>The server will close automatically in a few seconds.</strong></p>
             </div>
             """
+
+            # Set completion flag to trigger server shutdown
+            _gui_completion_requested = True
 
             return error_msg, close_script
 
@@ -226,32 +277,6 @@ def _create_final_verification_section(
         inputs=file_checkboxes,
         outputs=[final_status, close_browser_html]
     )
-
-
-def _show_error_gui(error_message: str):
-    """Show a simple error GUI."""
-    demo = create_error_interface(error_message)
-    _launch_demo(demo, "Model Sentinel GUI (Error)")
-
-
-def _launch_demo(demo: gr.Blocks, description: str):
-    """Launch a Gradio demo."""
-    print(f"🚀 Launching {description}")
-    print(GUI_URL)
-
-    demo.launch(
-        share=False, inbrowser=True, server_name="127.0.0.1", server_port=GUI_PORT
-    )
-
-
-def _launch_gui_with_result(result: Dict[str, Any], model_type: str):
-    """Launch GUI with verification result."""
-    files_to_verify = []
-    if result.get("model_hash_changed") and result.get("files_info"):
-        files_to_verify = result["files_info"]
-
-    demo = create_verification_gui(result, files_to_verify)
-    _launch_demo(demo, f"Model Sentinel GUI for {model_type} model verification")
 
 
 def _show_error_gui(error_message: str):
