@@ -2,7 +2,7 @@
 Main GUI interface for Model Sentinel.
 """
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 try:
     import gradio as gr
@@ -14,31 +14,84 @@ except ImportError:
 
 from .components import (
     create_error_interface,
-    create_file_list_section,
-    create_file_preview_section,
-    create_final_verification_section,
     create_no_files_section,
     create_simple_interface,
     create_verification_summary,
 )
-from .handlers import FileApprovalState, setup_file_selection_handlers
 from .utils import GUI_PORT, GUI_URL
 from .verification import get_verification_result
+
+
+# Global variable to store verification result from GUI
+_gui_verification_result = None
+
+
+def launch_verification_gui(
+    repo_id: str = None, model_dir: str = None, revision: str = "main"
+) -> bool:
+    """
+    Launch GUI for model verification and wait for user interaction.
+
+    Args:
+        repo_id: Hugging Face repository ID (for HF models)
+        model_dir: Local model directory path (for local models)
+        revision: Model revision (for HF models)
+
+    Returns:
+        bool: True if verification successful and all files approved, False otherwise
+    """
+    global _gui_verification_result
+
+    # Reset global state
+    _gui_verification_result = None
+
+    if repo_id:
+        try:
+            result = get_verification_result(repo_id)
+            return _launch_gui_with_result(result, "Hugging Face")
+        except Exception as e:
+            print(f"Error accessing repository: {str(e)}")
+            return False
+    elif model_dir:
+        try:
+            result = get_verification_result(model_dir)
+            return _launch_gui_with_result(result, "Local")
+        except Exception as e:
+            print(f"Error accessing model directory: {str(e)}")
+            return False
+    else:
+        print("Error: Either repo_id or model_dir must be specified")
+        return False
+
+
+def _launch_gui_with_result(result: Dict[str, Any], model_type: str) -> bool:
+    """Launch GUI with verification result and wait for completion."""
+    files_to_verify = []
+    if result.get("model_hash_changed") and result.get("files_info"):
+        files_to_verify = result["files_info"]
+
+    demo = create_verification_gui(result, files_to_verify)
+
+    print(f"🚀 Launching {model_type} model verification GUI")
+    print(GUI_URL)
+
+    # Launch and wait for completion (blocking)
+    demo.launch(
+        share=False,
+        inbrowser=True,
+        server_name="127.0.0.1",
+        server_port=GUI_PORT,
+        prevent_thread_lock=False  # Make it blocking
+    )
+
+    # After GUI closes, return the result
+    return _gui_verification_result if _gui_verification_result is not None else False
 
 
 def create_verification_gui(
     verification_result: Dict[str, Any], files_to_verify: List[Dict[str, Any]] = None
 ) -> gr.Blocks:
-    """
-    Create GUI for displaying verification results and file approval.
-
-    Args:
-        verification_result: Result from verify_hf_model or verify_local_model
-        files_to_verify: List of files that need user approval
-
-    Returns:
-        Gradio Blocks interface
-    """
+    """Create GUI for verification with blocking behavior."""
 
     with gr.Blocks(title="Model Sentinel - Verification Results") as demo:
         gr.Markdown("# 🛡️ Model Sentinel - Verification Results")
@@ -57,98 +110,137 @@ def create_verification_gui(
     return demo
 
 
-def launch_verification_gui(
-    repo_id: str = None, model_dir: str = None, revision: str = "main"
-):
-    """
-    Launch GUI for model verification.
-
-    Args:
-        repo_id: Hugging Face repository ID (for HF models)
-        model_dir: Local model directory path (for local models)
-        revision: Model revision (for HF models) - Note: Currently uses 'main' by default
-    """
-
-    if repo_id:
-        try:
-            # Note: revision parameter is handled internally by target layer
-            result = get_verification_result(repo_id)
-            _launch_gui_with_result(result, "Hugging Face")
-        except Exception as e:
-            _show_error_gui(f"Error accessing repository: {str(e)}")
-    elif model_dir:
-        try:
-            result = get_verification_result(model_dir)
-            _launch_gui_with_result(result, "Local")
-        except Exception as e:
-            _show_error_gui(f"Error accessing model directory: {str(e)}")
-    else:
-        # No model specified - show simple interface
-        demo = create_simple_interface()
-        _launch_demo(demo, "Model Sentinel GUI")
-
-
-def launch_verification_gui_unified(target_spec: str):
-    """
-    Launch GUI for model verification with unified interface.
-
-    Args:
-        target_spec: Model specification (repo_id for HF, path for local)
-    """
-    try:
-        result = get_verification_result(target_spec)
-        model_type = "Hugging Face" if result.get("target_type") == "hf" else "Local"
-        _launch_gui_with_result(result, model_type)
-    except Exception as e:
-        _show_error_gui(f"Error accessing model: {str(e)}")
 def _create_file_verification_interface(
     files_to_verify: List[Dict[str, Any]], verification_result: Dict[str, Any]
 ) -> None:
-    """Create the file verification interface."""
+    """Create the file verification interface with blocking completion."""
     gr.Markdown("## 📝 Files Requiring Verification")
     gr.Markdown("Please review the following files and approve if they are safe:")
 
-    # Create file approval state manager
-    file_approval_state = FileApprovalState(files_to_verify)
+    # Create checkboxes for each file and display content
+    file_checkboxes = []
 
-    # Create main layout with left file list and right content area
-    with gr.Row():
-        # Left column: File list
-        with gr.Column(scale=1, min_width=300):
-            file_buttons = create_file_list_section(files_to_verify)
+    for i, file_info in enumerate(files_to_verify):
+        filename = file_info.get("filename", f"File {i+1}")
+        content = file_info.get("content", "No content available")
 
-        # Right column: Content preview and approval controls
-        with gr.Column(scale=3):
-            (
-                selected_file_md,
-                file_content,
-                approval_controls,
-                file_hash_display,
-                current_approval_status,
-                approve_btn,
-                reject_btn,
-            ) = create_file_preview_section()
+        with gr.Row():
+            with gr.Column(scale=1):
+                checkbox = gr.Checkbox(
+                    label=f"Approve {filename}",
+                    value=False,
+                    elem_id=f"checkbox_{i}"
+                )
+                file_checkboxes.append(checkbox)
 
-    # Hidden state to track currently selected file
-    selected_file_index = gr.Number(value=-1, visible=False)
+        with gr.Row():
+            with gr.Column():
+                gr.Markdown(f"**File:** {filename}")
+                if "hash" in file_info:
+                    hash_short = file_info["hash"][:16] + "..."
+                    gr.Markdown(f"**Hash:** `{hash_short}`")
 
-    # Set up all event handlers
-    setup_file_selection_handlers(
-        file_approval_state,
-        file_buttons,
-        selected_file_md,
-        file_content,
-        approval_controls,
-        file_hash_display,
-        current_approval_status,
-        selected_file_index,
-        approve_btn,
-        reject_btn,
-    )
+                gr.Code(
+                    value=content,
+                    language="python",
+                    label=f"Content of {filename}",
+                    lines=10
+                )
+        gr.Markdown("---")
 
     # Final approval section
-    create_final_verification_section(
-        verification_result, file_approval_state.get_approval_components()
+    _create_final_verification_section(
+        verification_result, files_to_verify, file_checkboxes
+    )
+
+
+def _create_final_verification_section(
+    verification_result: Dict[str, Any],
+    files_to_verify: List[Dict[str, Any]],
+    file_checkboxes: List[gr.Checkbox],
+) -> None:
+    """Create final verification section with checkbox-based completion."""
+    gr.Markdown("## 🚀 Final Verification")
+
+    with gr.Row():
+        final_approve_btn = gr.Button(
+            "🛡️ Complete Verification", variant="primary", size="lg"
+        )
+        final_status = gr.Textbox(
+            value="Review files above and click to complete verification",
+            label="Verification Status",
+            interactive=False,
+        )
+
+    # HTML component for completion messages
+    close_browser_html = gr.HTML(value="", visible=True)
+
+    def complete_verification_simple(*checkbox_values):
+        global _gui_verification_result
+
+        # Get list of approved files based on checkbox values
+        approved_files = []
+        total_files = len(files_to_verify)
+
+        for i, is_approved in enumerate(checkbox_values):
+            if is_approved and i < len(files_to_verify):
+                filename = files_to_verify[i]["filename"]
+                approved_files.append(filename)
+
+        # Check if all files are approved
+        if len(approved_files) == total_files and total_files > 0:
+            # All files approved - save and return success
+            from .verification import save_verification_results
+
+            save_verification_results(verification_result, approved_files)
+            _gui_verification_result = True
+
+            # Display completion message to user
+            close_script = """
+            <div style="background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; padding: 20px; border-radius: 5px; margin: 20px 0; text-align: center; font-family: Arial, sans-serif;">
+                <h3 style="margin: 0 0 10px 0;">🎉 Verification Complete!</h3>
+                <p style="margin: 0; font-size: 16px;">All files have been successfully verified and saved.</p>
+                <p style="margin: 10px 0 0 0; font-size: 14px; color: #6c757d;"><strong>You can now close this browser tab.</strong></p>
+            </div>
+            """
+
+            return "✅ Verification completed successfully!", close_script
+
+        else:
+            # Not all files approved - show error and exit
+            error_msg = f"❌ Not all files approved ({len(approved_files)}/{total_files}). Verification failed."
+            _gui_verification_result = False
+
+            close_script = """
+            <div style="background-color: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; padding: 20px; border-radius: 5px; margin: 20px 0; text-align: center; font-family: Arial, sans-serif;">
+                <h3 style="margin: 0 0 10px 0;">❌ Verification Failed</h3>
+                <p style="margin: 0; font-size: 16px;">Not all files were approved. The verification process has been cancelled.</p>
+                <p style="margin: 10px 0 0 0; font-size: 14px; color: #6c757d;"><strong>You can close this browser tab.</strong></p>
+            </div>
+            """
+
+            return error_msg, close_script
+
+    final_approve_btn.click(
+        complete_verification_simple,
+        inputs=file_checkboxes,
+        outputs=[final_status, close_browser_html]
+    )
+
+
+def _show_error_gui(error_message: str):
+    """Show a simple error GUI."""
+    demo = create_error_interface(error_message)
+    _launch_demo(demo, "Model Sentinel GUI (Error)")
+
+
+def _launch_demo(demo: gr.Blocks, description: str):
+    """Launch a Gradio demo."""
+    print(f"🚀 Launching {description}")
+    print(GUI_URL)
+
+    demo.launch(
+        share=False, inbrowser=True, server_name="127.0.0.1", server_port=GUI_PORT
     )
 
 

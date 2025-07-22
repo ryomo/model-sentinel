@@ -150,29 +150,38 @@ class TargetHF(TargetBase):
         return files_info
 
 
-def verify_hf_model(repo_id, revision=None, gui=False, exit_on_reject=True) -> bool | dict:
+def verify_hf_model(repo_id, revision=None, gui=False, exit_on_reject=True) -> bool:
     """
     Check if the model hash has changed and verify remote files.
 
     Args:
         repo_id: Hugging Face repository ID
         revision: Model revision/branch
-        gui: If True, launch GUI for verification
+        gui: If True, launch GUI for verification if needed
         exit_on_reject: If True, exit the process when verification fails
 
     Returns:
-        bool: True if verification successful (when gui=False)
-        dict: Detailed verification results (when gui=True)
+        bool: True if verification successful or no changes detected
     """
+
+    target = TargetHF()
+    new_model_hash = target.detect_model_changes(repo_id, revision=revision)
+
+    # If no changes detected, model is already verified
+    if not new_model_hash:
+        if gui:
+            print("No changes detected in the model hash. Model is already verified.")
+        else:
+            print("No changes detected in the model hash. Skipping file checks.")
+        return True
 
     if gui:
         # Launch GUI for verification
         try:
-            from model_sentinel.gui import launch_verification_gui
+            from model_sentinel.gui.main import launch_verification_gui_blocking
 
-            launch_verification_gui(repo_id=repo_id, revision=revision)
-            # Return a simple result since GUI handles the interaction
-            return True
+            print("Changes detected. Launching GUI for verification...")
+            return launch_verification_gui_blocking(repo_id=repo_id, revision=revision)
         except ImportError:
             print("GUI functionality requires gradio. Install with:")
             print("pip install 'model-sentinel[gui]'")
@@ -182,12 +191,6 @@ def verify_hf_model(repo_id, revision=None, gui=False, exit_on_reject=True) -> b
             return False
 
     # CLI mode: original behavior
-    target = TargetHF()
-    new_model_hash = target.detect_model_changes(repo_id, revision=revision)
-    if not new_model_hash:
-        print("No changes detected in the model hash. Skipping file checks.")
-        return True
-
     print("\n" + "=" * 50)
     print("Checking remote Python files...")
     verified_all = target.verify_remote_files(repo_id, revision=revision)

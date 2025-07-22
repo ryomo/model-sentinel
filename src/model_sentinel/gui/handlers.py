@@ -113,17 +113,21 @@ def setup_file_selection_handlers(
         """Approve currently selected file."""
         file_approval_components = file_approval_state.get_approval_components()
         if 0 <= selected_index < len(file_approval_components):
+            # Update the state component value
             file_approval_components[selected_index]["approval_state"].value = 1
-            return STATUS_SUCCESS
-        return STATUS_PENDING
+            file_approval_components[selected_index]["approval_status"].value = STATUS_SUCCESS
+            return STATUS_SUCCESS, 1
+        return STATUS_PENDING, 0
 
     def reject_current_file(selected_index):
         """Reject currently selected file."""
         file_approval_components = file_approval_state.get_approval_components()
         if 0 <= selected_index < len(file_approval_components):
+            # Update the state component value
             file_approval_components[selected_index]["approval_state"].value = -1
-            return STATUS_FAILED
-        return STATUS_PENDING
+            file_approval_components[selected_index]["approval_status"].value = STATUS_FAILED
+            return STATUS_FAILED, -1
+        return STATUS_PENDING, 0
 
     # Set up file button click handlers
     for i, btn in enumerate(file_buttons):
@@ -144,11 +148,11 @@ def setup_file_selection_handlers(
     approve_btn.click(
         approve_current_file,
         inputs=[selected_file_index],
-        outputs=[current_approval_status]
+        outputs=[current_approval_status, file_approval_state.get_approval_components()[0]["approval_state"] if file_approval_state.get_approval_components() else gr.Number()]
     )
 
     reject_btn.click(
         reject_current_file,
         inputs=[selected_file_index],
-        outputs=[current_approval_status]
+        outputs=[current_approval_status, file_approval_state.get_approval_components()[0]["approval_state"] if file_approval_state.get_approval_components() else gr.Number()]
     )
