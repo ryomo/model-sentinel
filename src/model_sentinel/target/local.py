@@ -141,10 +141,10 @@ def verify_local_model(model_dir: str | Path, gui=False, exit_on_reject=True) ->
     if gui:
         # Launch GUI for verification
         try:
-            from model_sentinel.gui.main import launch_verification_gui_blocking
+            from model_sentinel.gui.main import launch_verification_gui
 
             print("Changes detected. Launching GUI for verification...")
-            return launch_verification_gui_blocking(model_dir=str(model_dir))
+            return launch_verification_gui(model_dir=str(model_dir))
         except ImportError:
             print("GUI functionality requires gradio. Install with:")
             print("pip install 'model-sentinel[gui]'")

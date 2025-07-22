@@ -178,10 +178,10 @@ def verify_hf_model(repo_id, revision=None, gui=False, exit_on_reject=True) -> b
     if gui:
         # Launch GUI for verification
         try:
-            from model_sentinel.gui.main import launch_verification_gui_blocking
+            from model_sentinel.gui.main import launch_verification_gui
 
             print("Changes detected. Launching GUI for verification...")
-            return launch_verification_gui_blocking(repo_id=repo_id, revision=revision)
+            return launch_verification_gui(repo_id=repo_id, revision=revision)
         except ImportError:
             print("GUI functionality requires gradio. Install with:")
             print("pip install 'model-sentinel[gui]'")
