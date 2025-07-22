@@ -293,36 +293,3 @@ def _launch_demo(demo: gr.Blocks, description: str):
     demo.launch(
         share=False, inbrowser=True, server_name="127.0.0.1", server_port=GUI_PORT
     )
-
-
-def main():
-    """Launch the Model Sentinel GUI application with command-line arguments."""
-    import argparse
-
-    parser = argparse.ArgumentParser(description="Model Sentinel GUI")
-    parser.add_argument(
-        "--repo",
-        type=str,
-        help="Hugging Face repository ID (e.g., ryomo/malicious-code-test)",
-    )
-    parser.add_argument(
-        "--revision",
-        type=str,
-        default="main",
-        help="Model revision/branch (default: main)",
-    )
-    parser.add_argument("--local", type=str, help="Path to local model directory")
-
-    args = parser.parse_args()
-
-    # Launch GUI with specified model
-    if args.repo:
-        launch_verification_gui(repo_id=args.repo, revision=args.revision)
-    elif args.local:
-        launch_verification_gui(model_dir=args.local)
-    else:
-        launch_verification_gui()
-
-
-if __name__ == "__main__":
-    main()

@@ -1,10 +1,6 @@
 from pathlib import Path
-from typing import Dict, List
 
-from model_sentinel.target.base import TargetBase
-
-# Constants
-VERIFICATION_FAILED_MESSAGE = "Model verification failed. Exiting for security reasons."
+from model_sentinel.target.base import TargetBase, VERIFICATION_FAILED_MESSAGE
 
 
 class TargetLocal(TargetBase):
@@ -73,7 +69,7 @@ class TargetLocal(TargetBase):
         """Generate model key for data storage."""
         return f"local/{model_dir}"
 
-    def get_files_for_verification(self, model_dir: Path) -> List[Dict[str, str]]:
+    def get_files_for_verification(self, model_dir: Path) -> list[dict[str, str]]:
         """
         Get list of files that need verification for GUI display.
 
@@ -171,14 +167,4 @@ def verify_local_model(model_dir: str | Path, gui=False, exit_on_reject=True) ->
         return verified_all
 
 
-if __name__ == "__main__":
-    # Set the current working directory to the project root
-    import os
 
-    project_dir = Path(__file__).parents[3]
-    os.chdir(project_dir)
-    print(f"Current working directory: {os.getcwd()}")
-
-    # Example usage
-    model_dir = "downloaded_model/malicious-code-test-hf"
-    verify_local_model(model_dir)

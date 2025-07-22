@@ -4,11 +4,12 @@ from model_sentinel import Verify, verify_hf_model, verify_local_model
 def main():
     import argparse
 
+    # Default values for backward compatibility
+    DEFAULT_REPO_NAME = "ryomo/malicious-code-test"
+    DEFAULT_REVISION = "main"
+
     parser = argparse.ArgumentParser(description="Model Sentinel CLI")
     parser.add_argument("--delete", action="store_true", help="Delete the hash file")
-    parser.add_argument(
-        "--check-files-only", action="store_true", help="Only check remote files"
-    )
     parser.add_argument(
         "--list-verified", action="store_true", help="List all verified hashes"
     )
@@ -21,15 +22,11 @@ def main():
     parser.add_argument(
         "--revision",
         type=str,
-        default="main",
-        help="Model revision/branch (default: main)",
+        default=DEFAULT_REVISION,
+        help=f"Model revision/branch (default: {DEFAULT_REVISION})",
     )
     parser.add_argument("--local", type=str, help="Path to local model directory")
     args = parser.parse_args()
-
-    # Default repo for backward compatibility
-    DEFAULT_REPO_NAME = "ryomo/malicious-code-test"
-    DEFAULT_REVISION = "main"
 
     if args.gui:
         # Launch GUI interface
@@ -61,14 +58,6 @@ def main():
         # List all verified hashes
         verify = Verify()
         verify.list_verified_hashes()
-
-    elif args.check_files_only:
-        # Check remote files only without checking model hash
-        repo_name = args.repo or DEFAULT_REPO_NAME
-        revision = args.revision or DEFAULT_REVISION
-        verify = Verify()
-        result = verify.check_remote_files(repo_name, revision=revision)
-        print(f"File check result: {result}")
 
     else:
         # Default behavior: check model hash then files

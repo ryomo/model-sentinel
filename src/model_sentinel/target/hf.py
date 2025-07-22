@@ -1,9 +1,6 @@
 from huggingface_hub import HfApi
 
-from model_sentinel.target.base import TargetBase
-
-# Constants
-VERIFICATION_FAILED_MESSAGE = "Model verification failed. Exiting for security reasons."
+from model_sentinel.target.base import TargetBase, VERIFICATION_FAILED_MESSAGE
 
 
 class TargetHF(TargetBase):
@@ -205,18 +202,3 @@ def verify_hf_model(repo_id, revision=None, gui=False, exit_on_reject=True) -> b
             print(VERIFICATION_FAILED_MESSAGE)
             exit(1)
         return verified_all
-
-
-if __name__ == "__main__":
-    # Set the current working directory to the project root
-    import os
-    from pathlib import Path
-
-    project_dir = Path(__file__).parents[3]
-    os.chdir(project_dir)
-    print(f"Current working directory: {os.getcwd()}")
-
-    # Example usage with Hugging Face model
-    repo_id = "ryomo/malicious-code-test"
-    revision = "main"
-    verify_hf_model(repo_id, revision)

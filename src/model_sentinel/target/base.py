@@ -3,6 +3,9 @@ from pathlib import Path
 
 from model_sentinel.verify.verify import Verify
 
+# Constants
+VERIFICATION_FAILED_MESSAGE = "Model verification failed. Exiting for security reasons."
+
 
 class TargetBase:
     """
