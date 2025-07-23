@@ -13,18 +13,13 @@ except ImportError:
     )
 
 from .components import (
-    create_error_interface,
+    create_file_verification_interface,
     create_no_files_section,
     create_simple_interface,
     create_verification_summary,
 )
 from .utils import GUI_PORT, GUI_URL
 from .verification import get_verification_result
-
-
-# Global variable to store verification result from GUI
-_gui_verification_result = None
-_gui_completion_requested = False
 
 
 def launch_verification_gui(
@@ -41,12 +36,6 @@ def launch_verification_gui(
     Returns:
         bool: True if verification successful and all files approved, False otherwise
     """
-    global _gui_verification_result, _gui_completion_requested
-
-    # Reset global state
-    _gui_verification_result = None
-    _gui_completion_requested = False
-
     if repo_id:
         try:
             result = get_verification_result(repo_id)
@@ -63,7 +52,9 @@ def launch_verification_gui(
             return False
     else:
         demo = create_simple_interface()
-        _launch_demo(demo, "Model Sentinel GUI")
+        demo.launch(
+            share=False, inbrowser=True, server_name="127.0.0.1", server_port=GUI_PORT
+        )
         return False
 
 
@@ -72,11 +63,17 @@ def _launch_gui_with_result(result: Dict[str, Any], model_type: str) -> bool:
     import threading
     import time
 
+    # Initialize GUI state
+    gui_state = {
+        "verification_result": None,
+        "completion_requested": False
+    }
+
     files_to_verify = []
     if result.get("model_hash_changed") and result.get("files_info"):
         files_to_verify = result["files_info"]
 
-    demo = create_verification_gui(result, files_to_verify)
+    demo = create_verification_gui(result, files_to_verify, gui_state)
 
     print(f"🚀 Launching {model_type} model verification GUI")
     print(GUI_URL)
@@ -98,8 +95,7 @@ def _launch_gui_with_result(result: Dict[str, Any], model_type: str) -> bool:
 
     def monitor_completion():
         """Monitor completion flag and shutdown server"""
-        global _gui_completion_requested
-        while not _gui_completion_requested:
+        while not gui_state["completion_requested"]:
             time.sleep(0.5)  # Check every 0.5 seconds
 
         # Wait a bit to show completion message, then shutdown
@@ -123,18 +119,20 @@ def _launch_gui_with_result(result: Dict[str, Any], model_type: str) -> bool:
     monitor_thread.start()
 
     # Wait for completion in main thread
-    while not _gui_completion_requested:
+    while not gui_state["completion_requested"]:
         time.sleep(0.1)
 
     # Wait for monitor thread to finish
     monitor_thread.join(timeout=5)
 
     # Return the verification result
-    return _gui_verification_result if _gui_verification_result is not None else False
+    return gui_state["verification_result"] if gui_state["verification_result"] is not None else False
 
 
 def create_verification_gui(
-    verification_result: Dict[str, Any], files_to_verify: List[Dict[str, Any]] = None
+    verification_result: Dict[str, Any],
+    files_to_verify: List[Dict[str, Any]] = None,
+    gui_state: Dict[str, Any] = None
 ) -> gr.Blocks:
     """Create GUI for verification with blocking behavior."""
 
@@ -148,148 +146,8 @@ def create_verification_gui(
 
         # File verification section
         if files_to_verify and len(files_to_verify) > 0:
-            _create_file_verification_interface(files_to_verify, verification_result)
+            create_file_verification_interface(files_to_verify, verification_result, gui_state)
         else:
             create_no_files_section(verification_result)
 
     return demo
-
-
-def _create_file_verification_interface(
-    files_to_verify: List[Dict[str, Any]], verification_result: Dict[str, Any]
-) -> None:
-    """Create the file verification interface with blocking completion."""
-    gr.Markdown("## 📝 Files Requiring Verification")
-    gr.Markdown("Please review the following files and approve if they are safe:")
-
-    # Create checkboxes for each file and display content
-    file_checkboxes = []
-
-    for i, file_info in enumerate(files_to_verify):
-        filename = file_info.get("filename", f"File {i+1}")
-        content = file_info.get("content", "No content available")
-
-        with gr.Row():
-            with gr.Column(scale=1):
-                checkbox = gr.Checkbox(
-                    label=f"Approve {filename}",
-                    value=False,
-                    elem_id=f"checkbox_{i}"
-                )
-                file_checkboxes.append(checkbox)
-
-        with gr.Row():
-            with gr.Column():
-                gr.Markdown(f"**File:** {filename}")
-                if "hash" in file_info:
-                    hash_short = file_info["hash"][:16] + "..."
-                    gr.Markdown(f"**Hash:** `{hash_short}`")
-
-                gr.Code(
-                    value=content,
-                    language="python",
-                    label=f"Content of {filename}",
-                    lines=10
-                )
-        gr.Markdown("---")
-
-    # Final approval section
-    _create_final_verification_section(
-        verification_result, files_to_verify, file_checkboxes
-    )
-
-
-def _create_final_verification_section(
-    verification_result: Dict[str, Any],
-    files_to_verify: List[Dict[str, Any]],
-    file_checkboxes: List[gr.Checkbox],
-) -> None:
-    """Create final verification section with checkbox-based completion."""
-    gr.Markdown("## 🚀 Final Verification")
-
-    with gr.Row():
-        final_approve_btn = gr.Button(
-            "🛡️ Complete Verification", variant="primary", size="lg"
-        )
-        final_status = gr.Textbox(
-            value="Review files above and click to complete verification",
-            label="Verification Status",
-            interactive=False,
-        )
-
-    # HTML component for completion messages
-    close_browser_html = gr.HTML(value="", visible=True)
-
-    def complete_verification_simple(*checkbox_values):
-        global _gui_verification_result, _gui_completion_requested
-
-        # Get list of approved files based on checkbox values
-        approved_files = []
-        total_files = len(files_to_verify)
-
-        for i, is_approved in enumerate(checkbox_values):
-            if is_approved and i < len(files_to_verify):
-                filename = files_to_verify[i]["filename"]
-                approved_files.append(filename)
-
-        # Check if all files are approved
-        if len(approved_files) == total_files and total_files > 0:
-            # All files approved - save and return success
-            from .verification import save_verification_results
-
-            save_verification_results(verification_result, approved_files)
-            _gui_verification_result = True
-
-            # Display completion message to user
-            close_script = """
-            <div style="background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; padding: 20px; border-radius: 5px; margin: 20px 0; text-align: center; font-family: Arial, sans-serif;">
-                <h3 style="margin: 0 0 10px 0;">🎉 Verification Complete!</h3>
-                <p style="margin: 0; font-size: 16px;">All files have been successfully verified and saved.</p>
-                <p style="margin: 10px 0 0 0; font-size: 14px; color: #6c757d;"><strong>The server will close automatically in a few seconds.</strong></p>
-            </div>
-            """
-
-            # Set completion flag to trigger server shutdown
-            _gui_completion_requested = True
-
-            return "✅ Verification completed successfully!", close_script
-
-        else:
-            # Not all files approved - show error and exit
-            error_msg = f"❌ Not all files approved ({len(approved_files)}/{total_files}). Verification failed."
-            _gui_verification_result = False
-
-            close_script = """
-            <div style="background-color: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; padding: 20px; border-radius: 5px; margin: 20px 0; text-align: center; font-family: Arial, sans-serif;">
-                <h3 style="margin: 0 0 10px 0;">❌ Verification Failed</h3>
-                <p style="margin: 0; font-size: 16px;">Not all files were approved. The verification process has been cancelled.</p>
-                <p style="margin: 10px 0 0 0; font-size: 14px; color: #6c757d;"><strong>The server will close automatically in a few seconds.</strong></p>
-            </div>
-            """
-
-            # Set completion flag to trigger server shutdown
-            _gui_completion_requested = True
-
-            return error_msg, close_script
-
-    final_approve_btn.click(
-        complete_verification_simple,
-        inputs=file_checkboxes,
-        outputs=[final_status, close_browser_html]
-    )
-
-
-def _show_error_gui(error_message: str):
-    """Show a simple error GUI."""
-    demo = create_error_interface(error_message)
-    _launch_demo(demo, "Model Sentinel GUI (Error)")
-
-
-def _launch_demo(demo: gr.Blocks, description: str):
-    """Launch a Gradio demo."""
-    print(f"🚀 Launching {description}")
-    print(GUI_URL)
-
-    demo.launch(
-        share=False, inbrowser=True, server_name="127.0.0.1", server_port=GUI_PORT
-    )
