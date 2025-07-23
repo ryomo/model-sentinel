@@ -15,7 +15,7 @@ __pycache__/
 *.log
 
 # Internal docs
+docs/agent/
 docs/internal/
-MEMO.md
 
 !.gitkeep
