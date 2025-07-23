@@ -5,6 +5,10 @@ __pycache__/
 *.egg-info/
 .venv
 
+# Testing
+.coverage
+htmlcov/
+
 # Jupyter Notebook
 .ipynb_checkpoints
 

@@ -100,6 +100,42 @@ uv run model-sentinel --local ./my-model-directory
 uv run model-sentinel --gui --repo ryomo/malicious-code-test
 ```
 
+## Testing
+
+This project uses Python's built-in `unittest` for testing.
+
+### Running Tests
+
+Run all tests:
+
+```bash
+uv run python -m unittest discover tests -v
+```
+
+Run specific test module:
+
+```bash
+uv run python -m unittest tests.test_verify.test_verify -v
+uv run python -m unittest tests.test_target.test_base -v
+uv run python -m unittest tests.test_cli -v
+```
+
+### Test Coverage
+
+Generate coverage reports:
+
+```bash
+# Run tests with coverage
+uv run python -m coverage run -m unittest discover tests
+
+# Generate coverage report
+uv run python -m coverage report --include="src/*"
+
+# Generate HTML coverage report
+uv run python -m coverage html --include="src/*"
+# Open htmlcov/index.html in browser
+```
+
 ## Technical Specifications
 
 - **Python**: 3.12+
