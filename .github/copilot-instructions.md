@@ -19,6 +19,11 @@
 - **Use `pathlib` for path and file operations instead of `os.path` or `glob`.**
   - Example: `from pathlib import Path` # Not `import os.path`
 - Use type annotations, f-strings, comprehensions, and other modern Python features whenever possible.
+- **Write unit tests for new functionality using `unittest` framework.**
+  - When implementing new classes or functions, create corresponding test files in the `tests/` directory
+  - Follow the existing test structure and naming conventions
+  - Use mocks to isolate external dependencies
+  - Aim for comprehensive test coverage including both positive and negative test cases
 
 ## File Structure
 
@@ -58,6 +63,11 @@ The main directories and files of the project are as follows (items excluded by 
       - verify/
         - __init__.py
         - verify.py: Base class for verifying model changes and file integrity.
+  - tests/
+    - test_cli.py: Tests for CLI functionality
+    - test_target/: Tests for target implementations
+    - test_verify/: Tests for verification functionality
+    - data/: Test sample data and configurations
 ```
 
 ## Agent Task Documentation Guidelines
