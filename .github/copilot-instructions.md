@@ -1,21 +1,23 @@
-## AI Assistant Instructions
+# AI Assistant Instructions
 
-- **Always use context7 to look up library or API documentation when needed.**
-- **NEVER run git commands or commit changes.**
+## General Guidelines
+
+- Always use context7 to look up library or API documentation when needed.
+- NEVER run git commands or commit changes.
   - However, when appropriate, suggest recommended git commands or commit messages in the chat, but do not execute them. The user will handle all git operations.
   - Always write commit messages in English.
-- **Terminal Management:**
-  - Always inform the user when background processes are running and should be manually terminated.
-- **Cleanup:**
-  - Delete temporary debug scripts, test files, and other temporary artifacts after development tasks. (e.g., `debug_*.py`, `test_*.py`)
+- Inform the user when background processes are running and should be manually terminated.
+- Delete temporary debug scripts, test files, and other temporary artifacts after development tasks. (e.g., `debug_*.py`, `test_*.py`)
 
-### Coding Best Practices
+## Coding Best Practices
+
 - Follow modern best practices for code style, readability, and maintainability.
 - Prefer code consistency and clear naming conventions.
 
-#### Python
+### Python
+
 - **Use `pathlib` for path and file operations instead of `os.path` or `glob`.**
-  - Example: `from pathlib import Path`  # Not `import os.path`
+  - Example: `from pathlib import Path` # Not `import os.path`
 - Use type annotations, f-strings, comprehensions, and other modern Python features whenever possible.
 
 ## File Structure
@@ -28,6 +30,7 @@ If there are any changes to the file structure, be sure to record and update the
 
 The main directories and files of the project are as follows (items excluded by .gitignore are omitted):
 
+```file
 - Project root
   - LICENSE
   - pyproject.toml
@@ -55,3 +58,4 @@ The main directories and files of the project are as follows (items excluded by 
       - verify/
         - __init__.py
         - verify.py: Base class for verifying model changes and file integrity.
+```
