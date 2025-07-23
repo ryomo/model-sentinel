@@ -63,7 +63,8 @@ The main directories and files of the project are as follows (items excluded by 
 ## Agent Task Documentation Guidelines
 
 - For any user instruction that is the first directive in the current context and is not a simple question or a single-step task, create a new file under `docs/agent/` in the format `YYYYMMDD_{serial}.md` (serial should be a two-digit number, e.g., 01, 02, ...).
-- After creating this file, confirm with the user that the documentation is acceptable before proceeding with the task.
+  - After creating this documentation file, you MUST confirm with the user that the plan and approach are acceptable before proceeding with ANY implementation work.
+  - DO NOT start implementation, make technology choices, or proceed with coding until the user explicitly approves the documentation.
 - In this file, clearly describe the situation and break down what needs to be done into concrete steps. For complex tasks, divide the work into multiple actionable steps.
 - Update and edit this file as needed throughout the task to reflect progress, changes, or additional information.
 - The documentation file should be written in the language used by the user.
