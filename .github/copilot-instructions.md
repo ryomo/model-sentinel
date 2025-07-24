@@ -22,11 +22,16 @@
 - **Use `pathlib` for path and file operations instead of `os.path` or `glob`.**
   - Example: `from pathlib import Path` # Not `import os.path`
 - Use type annotations, f-strings, comprehensions, and other modern Python features whenever possible.
-- **Write unit tests for new functionality using `unittest` framework.**
-  - When implementing new classes or functions, create corresponding test files in the `tests/` directory
-  - Follow the existing test structure and naming conventions
-  - Use mocks to isolate external dependencies
-  - Aim for comprehensive test coverage including both positive and negative test cases
+
+#### Testing
+
+- When implementing new classes or functions, create corresponding test files in the `tests/` directory
+- **Use `unittest` framework for all testing - DO NOT use `pytest`.**
+- Follow the existing test structure in the `tests/` directory
+- Follow existing test file naming conventions (e.g., `test_module.py` for testing `module.py`)
+- Aim for comprehensive test coverage including both positive and negative test cases
+- Ensure tests are isolated and do not depend on external resources
+  - Use `unittest.mock` for mocking dependencies in tests
 
 ## File Structure
 
