@@ -12,13 +12,13 @@ A security verification tool for model scripts - Detects and verifies changes in
 
 ## Installation
 
-Basic Version (CLI only)
+### Basic Version (CLI only)
 
 ```bash
 pip install model-sentinel
 ```
 
-GUI Version
+### GUI Version
 
 ```bash
 pip install "model-sentinel[gui]"
@@ -86,15 +86,17 @@ Verified hashes are saved in `.model-sentinel.json`:
 
 ## Development
 
+For development and contributing to this project:
+
 ```bash
-# Clone repository
+# Clone and setup
 git clone https://github.com/ryomo/model-sentinel.git
 cd model-sentinel
 
 # Install dependencies
 uv sync
 
-# Usage in CLI
+# Run from source (for testing)
 uv run model-sentinel --hf ryomo/malicious-code-test
 uv run model-sentinel --local ./my-model-directory
 uv run model-sentinel --gui --hf ryomo/malicious-code-test

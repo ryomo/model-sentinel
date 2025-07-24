@@ -1,10 +1,36 @@
 [project]
 name = "model-sentinel"
 version = "0.1.0"
-description = "Add your description here"
+description = "A security verification tool for AI model scripts - Detects and verifies changes in Python files of AI models"
 readme = "README.md"
+license = { text = "MIT" }
 authors = [
     { name = "Ryo Moriwaki", email = "ryomo@duck.com" }
+]
+maintainers = [
+    { name = "Ryo Moriwaki", email = "ryomo@duck.com" }
+]
+keywords = [
+    "ai",
+    "security",
+    "model-verification",
+    "huggingface",
+    "machine-learning",
+    "code-analysis",
+    "malware-detection"
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing"
 ]
 requires-python = ">=3.12"
 dependencies = [
@@ -12,12 +38,29 @@ dependencies = [
     "platformdirs>=4.3.8",
 ]
 
+[project.urls]
+Homepage = "https://github.com/ryomo/model-sentinel"
+Repository = "https://github.com/ryomo/model-sentinel"
+Issues = "https://github.com/ryomo/model-sentinel/issues"
+Documentation = "https://github.com/ryomo/model-sentinel#readme"
+
 [project.scripts]
 model-sentinel = "model_sentinel.cli:main"
 
 [build-system]
-requires = ["setuptools>=61"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/model_sentinel"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/README.md",
+    "/LICENSE",
+    "/pyproject.toml"
+]
 
 [project.optional-dependencies]
 gui = [
@@ -30,4 +73,7 @@ dev = [
     "transformers>=4.52.4",
     "gradio>=5.37.0",
     "coverage>=7.9.2",
+    "hatchling>=1.27.0",
+    "build>=1.2.2.post1",
+    "twine>=6.1.0",
 ]
