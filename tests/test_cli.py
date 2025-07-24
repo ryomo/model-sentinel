@@ -163,12 +163,14 @@ class TestCLIHostPortArguments(unittest.TestCase):
         parser.add_argument(
             "--host",
             type=str,
-            help="GUI server host address (default: Gradio default)",
+            default="127.0.0.1",
+            help="GUI server host address (default: 127.0.0.1)",
         )
         parser.add_argument(
             "--port",
             type=int,
-            help="GUI server port (default: Gradio default)",
+            default=7860,
+            help="GUI server port (default: 7860)",
         )
 
         # Test parsing with all arguments
@@ -180,8 +182,8 @@ class TestCLIHostPortArguments(unittest.TestCase):
         # Test parsing with GUI only
         args = parser.parse_args(["--gui"])
         self.assertTrue(args.gui)
-        self.assertIsNone(args.host)
-        self.assertIsNone(args.port)
+        self.assertEqual(args.host, "127.0.0.1")
+        self.assertEqual(args.port, 7860)
 
     @patch('model_sentinel.gui.launch_verification_gui')
     def test_cli_to_gui_with_host_port(self, mock_launch):
@@ -217,14 +219,14 @@ class TestCLIHostPortArguments(unittest.TestCase):
 
     @patch('model_sentinel.gui.launch_verification_gui')
     def test_cli_to_gui_defaults(self, mock_launch):
-        """Test CLI to GUI with default values (None)."""
+        """Test CLI to GUI with default values."""
         with patch('sys.argv', ['model-sentinel', '--gui']):
             try:
                 cli.main()
             except SystemExit:
                 pass  # SystemExit is expected but not required
 
-        mock_launch.assert_called_once_with(host=None, port=None)
+        mock_launch.assert_called_once_with(host="127.0.0.1", port=7860)
 
 
 if __name__ == '__main__':

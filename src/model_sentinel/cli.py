@@ -17,11 +17,13 @@ def main():
     parser.add_argument(
         "--host",
         type=str,
+        default="127.0.0.1",
         help="GUI server host address (default: 127.0.0.1)",
     )
     parser.add_argument(
         "--port",
         type=int,
+        default=7860,
         help="GUI server port (default: 7860)",
     )
     parser.add_argument(
