@@ -25,7 +25,7 @@ def main():
         help="GUI server port (default: 7860)",
     )
     parser.add_argument(
-        "--repo",
+        "--hf",
         type=str,
         help="Hugging Face repository ID (e.g., ryomo/malicious-code-test)",
     )
@@ -44,9 +44,9 @@ def main():
             from model_sentinel.gui import launch_verification_gui
 
             print("Starting Model Sentinel GUI...")
-            if args.repo:
+            if args.hf:
                 launch_verification_gui(
-                    repo_id=args.repo,
+                    repo_id=args.hf,
                     revision=args.revision,
                     host=args.host,
                     port=args.port
@@ -90,7 +90,7 @@ def main():
                 )
         else:
             # Verify Hugging Face model
-            repo_name = args.repo or DEFAULT_REPO_NAME
+            repo_name = args.hf or DEFAULT_REPO_NAME
             revision = args.revision
             print(f"Using repository: {repo_name} at revision: {revision}")
 

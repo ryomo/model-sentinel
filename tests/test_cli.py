@@ -86,7 +86,7 @@ class TestCLI(unittest.TestCase):
         """Test custom Hugging Face repository."""
         mock_verify_hf.return_value = True
 
-        sys.argv = ['model-sentinel', '--repo', 'custom/repo', '--revision', 'v1.0']
+        sys.argv = ['model-sentinel', '--hf', 'custom/repo', '--revision', 'v1.0']
 
         with patch('builtins.print') as mock_print:
             cli.main()
@@ -98,7 +98,7 @@ class TestCLI(unittest.TestCase):
         """Test when Hugging Face model is not verified."""
         mock_verify_hf.return_value = False
 
-        sys.argv = ['model-sentinel', '--repo', 'test/repo']
+        sys.argv = ['model-sentinel', '--hf', 'test/repo']
 
         with patch('builtins.print') as mock_print:
             cli.main()
@@ -198,7 +198,7 @@ class TestCLIHostPortArguments(unittest.TestCase):
     def test_cli_to_gui_with_repo(self, mock_launch):
         """Test CLI to GUI integration with repo specification."""
         test_args = [
-            'model-sentinel', '--gui', '--repo', 'test/repo',
+            'model-sentinel', '--gui', '--hf', 'test/repo',
             '--revision', 'v1.0', '--host', '192.168.1.100', '--port', '8080'
         ]
 

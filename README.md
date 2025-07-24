@@ -29,9 +29,9 @@ pip install "model-sentinel[gui]"
 ### CLI Usage
 
 ```bash
-model-sentinel --repo ryomo/malicious-code-test
+model-sentinel --hf ryomo/malicious-code-test
 model-sentinel --local ./my-model-directory
-model-sentinel --gui --repo ryomo/malicious-code-test
+model-sentinel --gui --hf ryomo/malicious-code-test
 ```
 
 ### GUI Usage
@@ -39,7 +39,7 @@ model-sentinel --gui --repo ryomo/malicious-code-test
 *Note: GUI commands require the GUI version to be installed.*
 
 ```bash
-model-sentinel --gui --repo ryomo/malicious-code-test
+model-sentinel --gui --hf ryomo/malicious-code-test
 model-sentinel --gui --local ./my-model-directory
 model-sentinel --gui
 ```
@@ -95,9 +95,9 @@ cd model-sentinel
 uv sync
 
 # Usage in CLI
-uv run model-sentinel --repo ryomo/malicious-code-test
+uv run model-sentinel --hf ryomo/malicious-code-test
 uv run model-sentinel --local ./my-model-directory
-uv run model-sentinel --gui --repo ryomo/malicious-code-test
+uv run model-sentinel --gui --hf ryomo/malicious-code-test
 ```
 
 ## Testing
