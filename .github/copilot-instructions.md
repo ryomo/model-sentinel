@@ -7,12 +7,15 @@
   - However, when appropriate, suggest recommended git commands or commit messages in the chat, but do not execute them. The user will handle all git operations.
   - Always write commit messages in English.
 - Inform the user when background processes are running and should be manually terminated.
-- Delete temporary debug scripts, test files, and other temporary artifacts after development tasks. (e.g., `debug_*.py`, `test_*.py`)
+- Delete temporary debug scripts and other temporary artifacts after development tasks. (e.g., `debug_*.py`)
 
 ## Coding Best Practices
 
 - Follow modern best practices for code style, readability, and maintainability.
 - Prefer code consistency and clear naming conventions.
+- When creating new files, always reference existing file names in the same directory or similar contexts to follow consistent naming conventions.
+  - Example: When creating test files, check existing test file names to ensure consistency (e.g., `test_module.py` for testing `module.py`)
+  - Maintain consistent patterns across the entire project structure
 
 ### Python
 
