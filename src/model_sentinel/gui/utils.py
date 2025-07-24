@@ -10,11 +10,6 @@ STATUS_FAILED = "⚠️ Failed"
 STATUS_ERROR = "❌ Error"
 STATUS_PENDING = "🔄 Pending"
 
-# GUI constants
-GUI_URL = "📍 URL: http://127.0.0.1:7862"
-GUI_PORT = 7862
-
-
 def format_status(status: str) -> str:
     """Format status for display."""
     status_icons = {

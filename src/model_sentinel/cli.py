@@ -15,6 +15,16 @@ def main():
     )
     parser.add_argument("--gui", action="store_true", help="Launch GUI interface")
     parser.add_argument(
+        "--host",
+        type=str,
+        help="GUI server host address (default: 127.0.0.1)",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        help="GUI server port (default: 7860)",
+    )
+    parser.add_argument(
         "--repo",
         type=str,
         help="Hugging Face repository ID (e.g., ryomo/malicious-code-test)",
@@ -35,11 +45,20 @@ def main():
 
             print("Starting Model Sentinel GUI...")
             if args.repo:
-                launch_verification_gui(repo_id=args.repo, revision=args.revision)
+                launch_verification_gui(
+                    repo_id=args.repo,
+                    revision=args.revision,
+                    host=args.host,
+                    port=args.port
+                )
             elif args.local:
-                launch_verification_gui(model_dir=args.local)
+                launch_verification_gui(
+                    model_dir=args.local,
+                    host=args.host,
+                    port=args.port
+                )
             else:
-                launch_verification_gui()
+                launch_verification_gui(host=args.host, port=args.port)
         except ImportError:
             print("GUI functionality requires gradio. Install with:")
             print("pip install 'model-sentinel[gui]'")

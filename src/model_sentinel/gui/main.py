@@ -18,12 +18,25 @@ from .components import (
     create_simple_interface,
     create_verification_summary,
 )
-from .utils import GUI_PORT, GUI_URL
 from .verification import get_verification_result
 
 
+def _build_launch_kwargs(host: Optional[str] = None, port: Optional[int] = None) -> Dict[str, Any]:
+    """Build launch kwargs for Gradio based on host and port settings."""
+    kwargs = {}
+    if host is not None:
+        kwargs["server_name"] = host
+    if port is not None:
+        kwargs["server_port"] = port
+    return kwargs
+
+
 def launch_verification_gui(
-    repo_id: str = None, model_dir: str = None, revision: str = "main"
+    repo_id: str = None,
+    model_dir: str = None,
+    revision: str = "main",
+    host: str = None,
+    port: int = None
 ) -> bool:
     """
     Launch GUI for model verification and wait for user interaction.
@@ -32,6 +45,8 @@ def launch_verification_gui(
         repo_id: Hugging Face repository ID (for HF models)
         model_dir: Local model directory path (for local models)
         revision: Model revision (for HF models)
+        host: Server host address (None for Gradio default)
+        port: Server port (None for Gradio default)
 
     Returns:
         bool: True if verification successful and all files approved, False otherwise
@@ -39,26 +54,35 @@ def launch_verification_gui(
     if repo_id:
         try:
             result = get_verification_result(repo_id)
-            return _launch_gui_with_result(result, "Hugging Face")
+            return _launch_gui_with_result(result, "Hugging Face", host, port)
         except Exception as e:
             print(f"Error accessing repository: {str(e)}")
             return False
     elif model_dir:
         try:
             result = get_verification_result(model_dir)
-            return _launch_gui_with_result(result, "Local")
+            return _launch_gui_with_result(result, "Local", host, port)
         except Exception as e:
             print(f"Error accessing model directory: {str(e)}")
             return False
     else:
         demo = create_simple_interface()
+        launch_kwargs = _build_launch_kwargs(host, port)
+        
         demo.launch(
-            share=False, inbrowser=True, server_name="127.0.0.1", server_port=GUI_PORT
+            share=False,
+            inbrowser=True,
+            **launch_kwargs
         )
         return False
 
 
-def _launch_gui_with_result(result: Dict[str, Any], model_type: str) -> bool:
+def _launch_gui_with_result(
+    result: Dict[str, Any],
+    model_type: str,
+    host: str = None,
+    port: int = None
+) -> bool:
     """Launch GUI with verification result and wait for completion."""
     import threading
     import time
@@ -76,16 +100,23 @@ def _launch_gui_with_result(result: Dict[str, Any], model_type: str) -> bool:
     demo = create_verification_gui(result, files_to_verify, gui_state)
 
     print(f"🚀 Launching {model_type} model verification GUI")
-    print(GUI_URL)
+    
+    # Build dynamic URL if port is available
+    if port is not None:
+        server_host = host if host is not None else "127.0.0.1"
+        print(f"📍 URL: http://{server_host}:{port}")
+    else:
+        print("📍 URL: Check terminal output for Gradio server address")
 
     # If no files to verify (already verified), auto-close after short display
     if not files_to_verify:
+        launch_kwargs = _build_launch_kwargs(host, port)
+            
         demo.launch(
             share=False,
             inbrowser=True,
-            server_name="127.0.0.1",
-            server_port=GUI_PORT,
-            prevent_thread_lock=True
+            prevent_thread_lock=True,
+            **launch_kwargs
         )
         print("No files to verify. Displaying result for 5 seconds...")
         time.sleep(5)
@@ -106,12 +137,13 @@ def _launch_gui_with_result(result: Dict[str, Any], model_type: str) -> bool:
         print("✅ Gradio server closed.")
 
     # Launch demo
+    launch_kwargs = _build_launch_kwargs(host, port)
+    
     demo.launch(
         share=False,
         inbrowser=True,
-        server_name="127.0.0.1",
-        server_port=GUI_PORT,
-        prevent_thread_lock=True
+        prevent_thread_lock=True,
+        **launch_kwargs
     )
 
     # Start background completion monitoring

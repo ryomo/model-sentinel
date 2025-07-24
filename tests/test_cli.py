@@ -150,5 +150,82 @@ class TestCLI(unittest.TestCase):
         pass
 
 
+class TestCLIHostPortArguments(unittest.TestCase):
+    """Test cases for CLI host and port argument parsing."""
+
+    def test_cli_argument_parsing(self):
+        """Test CLI argument parsing for host and port options."""
+        import argparse
+
+        # Recreate the parser logic from cli.py
+        parser = argparse.ArgumentParser(description="Model Sentinel CLI")
+        parser.add_argument("--gui", action="store_true", help="Launch GUI interface")
+        parser.add_argument(
+            "--host",
+            type=str,
+            help="GUI server host address (default: Gradio default)",
+        )
+        parser.add_argument(
+            "--port",
+            type=int,
+            help="GUI server port (default: Gradio default)",
+        )
+
+        # Test parsing with all arguments
+        args = parser.parse_args(["--gui", "--host", "0.0.0.0", "--port", "8080"])
+        self.assertTrue(args.gui)
+        self.assertEqual(args.host, "0.0.0.0")
+        self.assertEqual(args.port, 8080)
+
+        # Test parsing with GUI only
+        args = parser.parse_args(["--gui"])
+        self.assertTrue(args.gui)
+        self.assertIsNone(args.host)
+        self.assertIsNone(args.port)
+
+    @patch('model_sentinel.gui.launch_verification_gui')
+    def test_cli_to_gui_with_host_port(self, mock_launch):
+        """Test that CLI passes host and port to GUI correctly."""
+        with patch('sys.argv', ['model-sentinel', '--gui', '--host', '0.0.0.0', '--port', '9000']):
+            try:
+                cli.main()
+            except SystemExit:
+                pass  # SystemExit is expected but not required
+
+        mock_launch.assert_called_once_with(host='0.0.0.0', port=9000)
+
+    @patch('model_sentinel.gui.launch_verification_gui')
+    def test_cli_to_gui_with_repo(self, mock_launch):
+        """Test CLI to GUI integration with repo specification."""
+        test_args = [
+            'model-sentinel', '--gui', '--repo', 'test/repo',
+            '--revision', 'v1.0', '--host', '192.168.1.100', '--port', '8080'
+        ]
+
+        with patch('sys.argv', test_args):
+            try:
+                cli.main()
+            except SystemExit:
+                pass  # SystemExit is expected but not required
+
+        mock_launch.assert_called_once_with(
+            repo_id='test/repo',
+            revision='v1.0',
+            host='192.168.1.100',
+            port=8080
+        )
+
+    @patch('model_sentinel.gui.launch_verification_gui')
+    def test_cli_to_gui_defaults(self, mock_launch):
+        """Test CLI to GUI with default values (None)."""
+        with patch('sys.argv', ['model-sentinel', '--gui']):
+            try:
+                cli.main()
+            except SystemExit:
+                pass  # SystemExit is expected but not required
+
+        mock_launch.assert_called_once_with(host=None, port=None)
+
+
 if __name__ == '__main__':
     unittest.main()
