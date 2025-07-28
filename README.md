@@ -29,9 +29,14 @@ pip install "model-sentinel[gui]"
 ### CLI Usage
 
 ```bash
+# Show help and usage instructions
+model-sentinel
+
+# Verify Hugging Face model
 model-sentinel --hf ryomo/malicious-code-test
+
+# Verify local model
 model-sentinel --local ./my-model-directory
-model-sentinel --gui --hf ryomo/malicious-code-test
 ```
 
 ### GUI Usage
@@ -41,7 +46,6 @@ model-sentinel --gui --hf ryomo/malicious-code-test
 ```bash
 model-sentinel --gui --hf ryomo/malicious-code-test
 model-sentinel --gui --local ./my-model-directory
-model-sentinel --gui
 ```
 
 ### Python Script Usage
@@ -97,6 +101,7 @@ cd model-sentinel
 uv sync
 
 # Run from source (for testing)
+uv run model-sentinel  # Show help
 uv run model-sentinel --hf ryomo/malicious-code-test
 uv run model-sentinel --local ./my-model-directory
 uv run model-sentinel --gui --hf ryomo/malicious-code-test
