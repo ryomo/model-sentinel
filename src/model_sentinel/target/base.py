@@ -2,6 +2,7 @@ import hashlib
 from pathlib import Path
 
 from model_sentinel.verify.verify import Verify
+from model_sentinel.storage.manager import StorageManager
 
 # Constants
 VERIFICATION_FAILED_MESSAGE = "Model verification failed. Exiting for security reasons."
@@ -14,6 +15,7 @@ class TargetBase:
 
     def __init__(self):
         self.verify = Verify()
+        self.storage = StorageManager()
 
     def _calculate_file_hash(self, file_path: Path | str) -> str:
         """
@@ -88,19 +90,21 @@ class TargetBase:
         return Path(file_path).read_text(encoding="utf-8")
 
     def _verify_files_workflow(
-        self, model_key: str, files_to_check: list[dict]
+        self, files_to_check: list[dict], model_dir: Path
     ) -> bool:
         """
-        Common workflow for verifying multiple files.
+        Common workflow for verifying multiple files using storage system.
 
         Args:
-            model_key: Model identifier
             files_to_check: List of dicts with 'path', 'filename', 'hash', 'content'
+            model_dir: Model storage directory
 
         Returns:
             bool: True if all files verified successfully
         """
-        data, _ = self.get_or_create_model_data(model_key)
+        # Ensure storage directories exist
+        self.storage.ensure_directories()
+
         all_verified = True
 
         for file_info in files_to_check:
@@ -110,52 +114,60 @@ class TargetBase:
 
             print(f"File: {filename}, Hash: {file_hash}")
 
-            if not self._check_file_changed(data, model_key, filename, file_hash):
+            if not self.verify.check_file_changed(model_dir, filename, file_hash):
                 continue
 
-            file_verified = self.verify_and_update_file_hash(
-                data, model_key, filename, file_hash, content
-            )
+            file_verified = self.verify.verify_file(filename, file_hash, content, model_dir)
             if not file_verified:
                 all_verified = False
 
-        self.verify.save_verified_hashes(data)
         return all_verified
 
-    def get_or_create_model_data(self, model_key: str) -> tuple[dict, str]:
+    def get_model_storage_dir(self, model_key: str, model_path: Path = None) -> Path:
         """
-        Get existing model data or create new one.
+        Get storage directory for model based on type.
 
         Args:
-            model_key: Unique identifier for the model
+            model_key: Model key (e.g., "local/bert_a1b2c3d4" or "hf/microsoft/DialoGPT-medium@main")
+            model_path: Original model path (for local models)
 
         Returns:
-            tuple: (data_dict, model_key)
+            Path to model storage directory
         """
-        data = self.verify.load_verified_hashes()
+        model_type, model_id = model_key.split('/', 1)
 
-        if model_key not in data:
-            print(f'Model "{model_key}" not found in verified hashes. Initializing.')
-            # Only store essential data to avoid redundancy
-            data[model_key] = {"model_hash": None, "files": {}}
+        if model_type == "local":
+            if model_path:
+                # Generate directory name and create if needed
+                model_dir = self.storage.get_local_model_dir(model_path)
+                # Save original path
+                self.storage.save_original_path(model_dir, str(model_path))
+                return model_dir
+            else:
+                # Use existing directory name
+                return self.storage.local_dir / model_id
+        elif model_type == "hf":
+            if '@' in model_id:
+                repo_id, revision = model_id.rsplit('@', 1)
+            else:
+                repo_id, revision = model_id, 'main'
+            return self.storage.get_hf_model_dir(repo_id, revision)
+        else:
+            raise ValueError(f"Unknown model type: {model_type}")
 
-        return data, model_key
-
-    def _check_model_hash_changed(
-        self, data: dict, model_key: str, current_hash: str
-    ) -> bool:
+    def check_model_hash_changed(self, model_dir: Path, current_hash: str) -> bool:
         """
-        Check if model hash has changed.
+        Check if model hash has changed using storage system.
 
         Args:
-            data: Loaded hash data
-            model_key: Model identifier
+            model_dir: Model storage directory
             current_hash: Current hash to compare
 
         Returns:
             bool: True if hash changed or is new, False if unchanged
         """
-        previous_hash = data[model_key]["model_hash"]
+        metadata = self.storage.load_metadata(model_dir)
+        previous_hash = metadata.get("model_hash")
 
         if previous_hash == current_hash:
             print("No changes detected in the model.")
@@ -170,51 +182,13 @@ class TargetBase:
 
         return True
 
-    def _check_file_changed(
-        self, data: dict, model_key: str, filename: str, current_hash: str
-    ) -> bool:
-        """
-        Check if file hash has changed.
+    def update_model_hash(self, model_dir: Path, new_hash: str):
+        """Update model hash using storage system."""
+        self.verify.update_model_hash(model_dir, new_hash)
 
-        Args:
-            data: Loaded hash data
-            model_key: Model identifier
-            filename: File name to check
-            current_hash: Current file hash
-
-        Returns:
-            bool: True if file changed or is new, False if unchanged
-        """
-        previous_hash = data[model_key]["files"].get(filename)
-
-        if previous_hash == current_hash:
-            print(f"No changes detected in {filename}.")
-            return False
-
-        if previous_hash is None:
-            print(f"No previous hash found for {filename}. This is the first check.")
-        else:
-            print(f"Changes detected in {filename}!")
-
-        return True
-
-    def update_model_hash(self, model_key: str, new_hash: str):
-        """Update model hash and save to file."""
-        data = self.verify.load_verified_hashes()
-        data[model_key]["model_hash"] = new_hash
-        self.verify.save_verified_hashes(data)
-        print(f"Model hash updated to: {new_hash}")
-
-    def verify_and_update_file_hash(
-        self, data: dict, model_key: str, filename: str, file_hash: str, content: str
-    ) -> bool:
-        """
-        Verify file content and update hash if verified.
-
-        Returns:
-            bool: True if file was verified and hash updated
-        """
-        file_verified = self.verify.verify_file(
-            filename, file_hash, content, data, model_key
-        )
-        return file_verified
+    def register_model_in_registry(self, model_type: str, model_id: str, original_path: str = None):
+        """Register model in the global registry."""
+        kwargs = {}
+        if original_path:
+            kwargs["original_path"] = original_path
+        self.storage.register_model(model_type, model_id, **kwargs)

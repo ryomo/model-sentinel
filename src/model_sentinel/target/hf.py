@@ -25,20 +25,19 @@ class TargetHF(TargetBase):
             print(f"Revision: {revision}")
         print(f"Current model hash: {current_hash}")
 
-        # Load existing verified hashes
-        repo_key = self._get_repo_key(repo_id, revision)
-        data, _ = self.get_or_create_model_data(repo_key)
+        # Get storage directory for this model
+        storage_dir = self.storage.get_hf_model_dir(repo_id, revision or "main")
 
-        if not super()._check_model_hash_changed(data, repo_key, current_hash):
+        if not super().check_model_hash_changed(storage_dir, current_hash):
             return None
 
         # Return current model hash to update later
         return current_hash
 
     def update_model_hash_for_repo(self, repo_id, revision, new_model_hash):
-        """Update the model hash in the verified hashes file."""
-        repo_key = self._get_repo_key(repo_id, revision)
-        super().update_model_hash(repo_key, new_model_hash)
+        """Update the model hash using storage system."""
+        storage_dir = self.storage.get_hf_model_dir(repo_id, revision or "main")
+        super().update_model_hash(storage_dir, new_model_hash)
 
     def verify_remote_files(self, repo_id, revision=None) -> bool:
         """Check remote .py files for changes and prompt for verification.
@@ -55,7 +54,8 @@ class TargetHF(TargetBase):
         if revision:
             print(f"Revision: {revision}")
 
-        repo_key = self._get_repo_key(repo_id, revision)
+        # Get storage directory for this model
+        storage_dir = self.storage.get_hf_model_dir(repo_id, revision or "main")
 
         # Prepare files for verification using common workflow
         files_to_check = []
@@ -78,7 +78,7 @@ class TargetHF(TargetBase):
                     return False
 
         # Use common verification workflow
-        return self._verify_files_workflow(repo_key, files_to_check)
+        return self._verify_files_workflow(files_to_check, storage_dir)
 
     def _download_file_content(self, hf_api, repo_id, revision, filename) -> str | None:
         """Download file content from HuggingFace.
@@ -195,6 +195,11 @@ def verify_hf_model(repo_id, revision=None, gui=False, exit_on_reject=True) -> b
 
     if verified_all:
         target.update_model_hash_for_repo(repo_id, revision, new_model_hash)
+
+        # Register in global registry
+        model_key = f"{repo_id}@{revision or 'main'}"
+        target.register_model_in_registry("hf", model_key)
+
         print("Verified model hash updated.")
         return verified_all
     else:

@@ -37,6 +37,12 @@ model-sentinel --hf ryomo/malicious-code-test
 
 # Verify local model
 model-sentinel --local ./my-model-directory
+
+# List all verified models
+model-sentinel --list-verified
+
+# Delete all verification data
+model-sentinel --delete
 ```
 
 ### GUI Usage
@@ -69,20 +75,36 @@ result = verify_hf_model("ryomo/malicious-code-test", gui=True)  # GUI window wi
 2. **File Verification**: If changes detected, check individual Python files
 3. **Content Display**: Show content of changed files (pager in CLI, web interface in GUI)
 4. **User Approval**: Only approve if user confirms content is trustworthy
-5. **Hash Update**: Save hash of approved files to `.model-sentinel.json`
+5. **Storage Update**: Save file content and metadata to `.model-sentinel/` directory structure
 
-## Verification Record
+## Verification Storage
 
-Verified hashes are saved in `.model-sentinel.json`:
+Verification data is stored in a structured `.model-sentinel/` directory:
+
+```file
+.model-sentinel/
+├── registry.json           # Global registry of verified models
+├── local/                  # Local model storage
+│   └── {model_name}_{hash}/
+│       ├── metadata.json   # Model metadata and file info
+│       └── files/          # Individual file content
+└── hf/                     # HuggingFace model storage
+    └── {org}/{model}@{revision}/
+        ├── metadata.json
+        └── files/
+```
+
+Example `metadata.json`:
 
 ```json
 {
-  "hf/ryomo/malicious-code-test@main": {
-    "revision": "main",
-    "model_hash": "abc123...",
-    "files": {
-      "modeling.py": "def456...",
-      "configuration.py": "ghi789..."
+  "model_hash": "abc123...",
+  "last_verified": "2025-07-28T10:30:00Z",
+  "files": {
+    "modeling.py": {
+      "hash": "def456...",
+      "size": 1024,
+      "verified_at": "2025-07-28T10:30:00Z"
     }
   }
 }

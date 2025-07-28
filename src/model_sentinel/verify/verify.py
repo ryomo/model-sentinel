@@ -1,40 +1,89 @@
-import json
 from pathlib import Path
 import pydoc
+from datetime import datetime
+from typing import Dict, Any, Optional
+
+from model_sentinel.storage.manager import StorageManager
 
 
 class Verify:
     """Base class for verifying model changes and file integrity."""
 
     def __init__(self):
-        self.verified_hashes_file = Path(".model-sentinel.json")
+        # Storage system
+        self.storage = StorageManager()
 
-    def verify_file(self, filename, current_hash, content, data, repo_key):
-        """Prompt user for verification and update hash if confirmed.
+    def verify_file(self, filename: str, current_hash: str, content: str,
+                   model_dir: Path) -> bool:
+        """Verify file content and update storage if confirmed.
+
+        Args:
+            filename: Name of the file being verified
+            current_hash: Current hash of the file
+            content: File content
+            model_dir: Model storage directory
 
         Returns:
-            True if file is verified and hash updated, False otherwise.
+            True if file is verified and storage updated, False otherwise.
         """
         if self.prompt_user_verification(filename, content):
-            data[repo_key]["files"][filename] = current_hash
-            print("Trust confirmed. Hash updated.")
+            # Save file content
+            self.storage.save_file_content(model_dir, filename, content)
+
+            # Update metadata
+            metadata = self.storage.load_metadata(model_dir)
+            metadata["files"][filename] = {
+                "hash": current_hash,
+                "size": len(content.encode('utf-8')),
+                "verified_at": datetime.now().isoformat()
+            }
+            metadata["last_verified"] = datetime.now().isoformat()
+            self.storage.save_metadata(model_dir, metadata)
+
+            print("Trust confirmed. File content and hash updated.")
             return True
         else:
             print("Trust not confirmed. Please review the file changes.")
             return False
 
-    def load_verified_hashes(self):
-        """Load all verified hashes from JSON file."""
-        if not self.verified_hashes_file.exists():
-            return {}
+    def update_model_hash(self, model_dir: Path, new_hash: str) -> None:
+        """Update model hash in metadata.
 
-        with open(self.verified_hashes_file, "r", encoding="utf-8") as f:
-            return json.load(f)
+        Args:
+            model_dir: Model storage directory
+            new_hash: New model hash
+        """
+        metadata = self.storage.load_metadata(model_dir)
+        metadata["model_hash"] = new_hash
+        metadata["last_verified"] = datetime.now().isoformat()
+        self.storage.save_metadata(model_dir, metadata)
+        print(f"Model hash updated to: {new_hash}")
 
-    def save_verified_hashes(self, data):
-        """Save verified hashes to JSON file."""
-        with open(self.verified_hashes_file, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
+    def check_file_changed(self, model_dir: Path, filename: str, current_hash: str) -> bool:
+        """Check if file hash has changed in storage system.
+
+        Args:
+            model_dir: Model storage directory
+            filename: Filename to check
+            current_hash: Current file hash
+
+        Returns:
+            True if file changed or is new, False if unchanged
+        """
+        metadata = self.storage.load_metadata(model_dir)
+        file_info = metadata.get("files", {}).get(filename)
+
+        if file_info is None:
+            print(f"No previous hash found for {filename}. This is the first check.")
+            return True
+
+        previous_hash = file_info.get("hash")
+        if previous_hash == current_hash:
+            print(f"No changes detected in {filename}.")
+            return False
+
+        print(f"Changes detected in {filename}!")
+        return True
 
     def prompt_user_verification(self, item_name, content):
         """Prompt user for verification of changes."""
@@ -50,45 +99,82 @@ class Verify:
         return response.lower() in ["y", "yes"]
 
     def list_verified_hashes(self):
-        """Display all verified hashes in a human-readable format."""
-        data = self.load_verified_hashes()
+        """Display all verified models and hashes in a human-readable format."""
+        # Load from storage system
+        registry = self.storage.load_registry()
+        models = registry.get("models", {})
 
-        if not data:
-            print("No verified hashes found.")
+        if not models:
+            print("No verified models found.")
             return
 
-        print("=== Verified Hashes Summary ===")
-        for repo_key, repo_data in data.items():
-            print(f"\nRepository: {repo_key}")
-            if repo_data.get("revision"):
-                print(f"Revision: {repo_data['revision']}")
-
-            if repo_data.get("model_hash"):
-                print(f"Model Hash: {repo_data['model_hash']}")
-            else:
-                print("Model Hash: Not verified")
-
-            files = repo_data.get("files", {})
-            if files:
-                print("Verified Files:")
-                for filename, file_hash in files.items():
-                    print(f"  - {filename}: {file_hash}")
-            else:
-                print("Files: None verified")
+        print("=== Verified Models Summary ===")
+        for model_key, model_info in models.items():
+            self._display_model_info(model_key, model_info)
             print("-" * 50)
 
+    def _display_model_info(self, model_key: str, model_info: Dict[str, Any]) -> None:
+        """Display information for a single model."""
+        print(f"\nModel: {model_key}")
+        print(f"Type: {model_info.get('type', 'unknown')}")
+        print(f"Last Verified: {model_info.get('last_verified', 'unknown')}")
+        print(f"Status: {model_info.get('status', 'unknown')}")
+
+        if model_info.get('original_path'):
+            print(f"Original Path: {model_info['original_path']}")
+
+        # Get model directory
+        model_dir = self._get_model_dir_from_info(model_key, model_info)
+        if model_dir and model_dir.exists():
+            self._display_file_info(model_dir)
+        else:
+            print("  Files: Metadata not found")
+
+    def _get_model_dir_from_info(self, model_key: str, model_info: Dict[str, Any]) -> Optional[Path]:
+        """Get model directory path from model info."""
+        model_type = model_info.get('type')
+
+        if model_type == 'local':
+            model_id = model_key.split('/', 1)[1]
+            return self.storage.local_dir / model_id
+        elif model_type == 'hf':
+            model_path = model_key.split('/', 1)[1]
+            if '@' in model_path:
+                repo_parts, revision = model_path.rsplit('@', 1)
+            else:
+                repo_parts, revision = model_path, 'main'
+            return self.storage.get_hf_model_dir(repo_parts, revision)
+
+        return None
+
+    def _display_file_info(self, model_dir: Path) -> None:
+        """Display file information for a model."""
+        metadata = self.storage.load_metadata(model_dir)
+        files = metadata.get("files", {})
+        if files:
+            print("  Verified Files:")
+            for filename, file_info in files.items():
+                print(f"    - {filename}: {file_info.get('hash', 'unknown')}")
+        else:
+            print("  Files: None verified")
+
     def delete_hash_file(self) -> bool:
-        """Delete the hash file (the list of verified files).
+        """Delete the storage directory.
 
         Returns:
             True if deletion was successful, False otherwise.
         """
         try:
-            if self.verified_hashes_file.exists():
-                self.verified_hashes_file.unlink()
-            return True
+            if self.storage.base_dir.exists():
+                import shutil
+                shutil.rmtree(self.storage.base_dir)
+                print("Storage directory deleted successfully.")
+                return True
+            else:
+                print("Storage directory does not exist.")
+                return True
         except Exception as e:
-            print(f"Error deleting hash file: {e}")
+            print(f"Error deleting storage directory: {e}")
             return False
 
     def get_unified_verification_result(self, target_spec: str) -> dict:
@@ -117,6 +203,7 @@ class Verify:
 
         target = TargetHF()
         revision = "main"  # Default revision for GUI
+
         new_model_hash = target.detect_model_changes(repo_id, revision)
 
         result = {
@@ -147,7 +234,6 @@ class Verify:
 
     def _verify_local_model(self, model_dir: str) -> dict:
         """Verify local model and return result."""
-        from pathlib import Path
         from model_sentinel.target.local import TargetLocal
 
         model_path = Path(model_dir)
@@ -191,8 +277,9 @@ class Verify:
             revision = verification_result.get("revision")
             return f"hf/{repo_id}@{revision}" if revision else f"hf/{repo_id}"
         elif target_type == "local" or "model_dir" in verification_result:
-            # Local model
-            model_dir = verification_result["model_dir"]
-            return f"local/{model_dir}"
+            # Local model - use storage manager to generate consistent ID
+            model_path = Path(verification_result["model_dir"])
+            model_id = self.storage.generate_local_model_dir_name(model_path)
+            return f"local/{model_id}"
         else:
             raise ValueError("Unable to determine model type")

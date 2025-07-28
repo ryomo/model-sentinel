@@ -83,19 +83,24 @@ class TestTargetHF(unittest.TestCase):
 
     def test_update_model_hash_for_repo(self):
         """Test updating model hash for repository."""
-        repo_key = "hf/test/repo@main"
-        test_data = {repo_key: {"model_hash": "old_hash", "files": {}}}
+        # Create test model directory using storage system
+        model_dir = self.target.storage.get_hf_model_dir(self.test_repo_id, self.test_revision)
+        model_dir.mkdir(parents=True)
 
-        # Mock the data loading and saving
-        with patch.object(self.target.verify, 'load_verified_hashes', return_value=test_data):
-            with patch.object(self.target.verify, 'save_verified_hashes') as mock_save:
-                self.target.update_model_hash_for_repo(self.test_repo_id, self.test_revision, "new_hash")
+        # Set initial metadata
+        initial_metadata = {
+            "model_hash": "old_hash",
+            "last_verified": "2025-07-27T00:00:00Z",
+            "files": {}
+        }
+        self.target.storage.save_metadata(model_dir, initial_metadata)
 
-                # Verify the data was updated and saved
-                mock_save.assert_called_once()
-                # Check that the data passed to save has the updated hash
-                saved_data = mock_save.call_args[0][0]
-                self.assertEqual(saved_data[repo_key]["model_hash"], "new_hash")
+        # Update model hash
+        self.target.update_model_hash_for_repo(self.test_repo_id, self.test_revision, "new_hash")
+
+        # Verify the data was updated
+        updated_metadata = self.target.storage.load_metadata(model_dir)
+        self.assertEqual(updated_metadata["model_hash"], "new_hash")
 
     @patch('model_sentinel.target.hf.HfApi')
     def test_verify_remote_files_success(self, mock_hf_api):

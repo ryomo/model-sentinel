@@ -4,6 +4,7 @@ Verification logic for Model Sentinel GUI.
 
 from typing import Any, Dict, List, Union
 from pathlib import Path
+from datetime import datetime
 
 from model_sentinel.verify.verify import Verify
 
@@ -26,7 +27,7 @@ def save_verification_results(
     verification_result: Dict[str, Any], approved_files: List[str]
 ) -> str:
     """
-    Save verification results to hash file.
+    Save verification results using the storage system.
 
     Args:
         verification_result: Original verification result
@@ -44,32 +45,38 @@ def save_verification_results(
         )
 
         verify = Verify()
-        data = verify.load_verified_hashes()
 
-        # Determine model key
+        # Determine model key and get storage directory
         model_key = verify.get_model_key_from_result(verification_result)
         print(f"🔑 Model key: {model_key}")
 
-        # Initialize model data if not exists
-        if model_key not in data:
-            data[model_key] = {"model_hash": None, "files": {}}
+        # Get model storage directory
+        if verification_result.get("target_type") == "local":
+            model_path = Path(verification_result["model_dir"])
+            model_dir = verify.storage.get_local_model_dir(model_path)
+        else:
+            repo_id = verification_result["repo_id"]
+            revision = verification_result.get("revision", "main")
+            model_dir = verify.storage.get_hf_model_dir(repo_id, revision)
 
-        # Update model hash
+        # Update model hash if changed
         if verification_result.get("new_model_hash"):
-            data[model_key]["model_hash"] = verification_result["new_model_hash"]
-            print(
-                f"🔄 Updated model hash: {verification_result['new_model_hash'][:16]}..."
-            )
+            verify.update_model_hash(model_dir, verification_result["new_model_hash"])
+            print(f"🔄 Updated model hash: {verification_result['new_model_hash'][:16]}...")
 
-        # Update file hashes for approved files
-        approved_count = _update_approved_files(
-            data[model_key], verification_result, approved_files
+        # Update file hashes for approved files using storage system
+        approved_count = _update_approved_files_storage(
+            model_dir, verification_result, approved_files, verify
         )
 
-        # Save to file
-        verify.save_verified_hashes(data)
-        print("💾 Saved verification data to hash file")
+        # Register model in registry
+        model_type, model_id = model_key.split('/', 1)
+        kwargs = {}
+        if verification_result.get("target_type") == "local":
+            kwargs["original_path"] = verification_result["model_dir"]
+        verify.storage.register_model(model_type, model_id, **kwargs)
 
+        print("💾 Saved verification data to storage system")
         return f"✅ Verification completed! {approved_count} files approved and saved."
 
     except Exception as e:
@@ -78,21 +85,35 @@ def save_verification_results(
         return error_msg
 
 
-def _update_approved_files(
-    model_data: Dict[str, Any],
+def _update_approved_files_storage(
+    model_dir: Path,
     verification_result: Dict[str, Any],
     approved_files: List[str],
+    verify: Verify
 ) -> int:
-    """Update file hashes for approved files."""
+    """Update file hashes for approved files using storage system."""
     files_info = verification_result.get("files_info", [])
     approved_count = 0
 
     for file_info in files_info:
         filename = file_info.get("filename", "")
         file_hash = file_info.get("hash", "")
+        content = file_info.get("content", "")
 
         if filename in approved_files and file_hash:
-            model_data["files"][filename] = file_hash
+            # Save file content and update metadata
+            verify.storage.save_file_content(model_dir, filename, content)
+
+            # Update metadata
+            metadata = verify.storage.load_metadata(model_dir)
+            metadata["files"][filename] = {
+                "hash": file_hash,
+                "size": len(content.encode('utf-8')),
+                "verified_at": datetime.now().isoformat()
+            }
+            metadata["last_verified"] = datetime.now().isoformat()
+            verify.storage.save_metadata(model_dir, metadata)
+
             approved_count += 1
             print(f"✅ Approved file: {filename} - {file_hash[:16]}...")
 
