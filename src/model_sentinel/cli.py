@@ -4,8 +4,6 @@ from model_sentinel import Verify, verify_hf_model, verify_local_model
 def main():
     import argparse
 
-    # Default values for backward compatibility
-    DEFAULT_REPO_NAME = "ryomo/malicious-code-test"
     DEFAULT_REVISION = "main"
 
     parser = argparse.ArgumentParser(description="Model Sentinel CLI")
@@ -81,7 +79,7 @@ def main():
         verify.list_verified_hashes()
 
     else:
-        # Default behavior: check model hash then files
+        # Check if any model-related arguments are provided
         if args.local:
             # Verify local model
             print(f"Verifying local model: {args.local}")
@@ -90,9 +88,9 @@ def main():
                 print(
                     "Please verify all files in the model directory before proceeding."
                 )
-        else:
+        elif args.hf:
             # Verify Hugging Face model
-            repo_name = args.hf or DEFAULT_REPO_NAME
+            repo_name = args.hf
             revision = args.revision
             print(f"Using repository: {repo_name} at revision: {revision}")
 
@@ -101,3 +99,6 @@ def main():
                 print(
                     "Please verify all remote files in the repository before proceeding."
                 )
+        else:
+            # No model specified - show help
+            parser.print_help()

@@ -64,22 +64,15 @@ class TestCLI(unittest.TestCase):
 
         mock_verify.list_verified_hashes.assert_called_once()
 
-    @patch('model_sentinel.cli.verify_hf_model')
-    def test_default_hf_behavior(self, mock_verify_hf):
-        """Test default behavior with Hugging Face model."""
-        mock_verify_hf.return_value = True
-
+    @patch('argparse.ArgumentParser.print_help')
+    def test_default_help_behavior(self, mock_print_help):
+        """Test default behavior shows help when no model is specified."""
         sys.argv = ['model-sentinel']
 
-        with patch('builtins.print') as mock_print:
-            cli.main()
+        cli.main()
 
-        # Should use default repo and revision
-        mock_verify_hf.assert_called_once_with("ryomo/malicious-code-test", "main")
-
-        # Check that it prints the repository info
-        print_calls = [call[0][0] for call in mock_print.call_args_list]
-        self.assertTrue(any("Using repository: ryomo/malicious-code-test at revision: main" in call for call in print_calls))
+        # Should call print_help when no model is specified
+        mock_print_help.assert_called_once()
 
     @patch('model_sentinel.cli.verify_hf_model')
     def test_custom_hf_repo(self, mock_verify_hf):
