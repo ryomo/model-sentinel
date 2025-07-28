@@ -3,15 +3,15 @@ import pydoc
 from datetime import datetime
 from typing import Dict, Any, Optional
 
-from model_sentinel.storage.manager import StorageManager
+from model_sentinel.directory.manager import DirectoryManager
 
 
 class Verify:
     """Base class for verifying model changes and file integrity."""
 
     def __init__(self):
-        # Storage system
-        self.storage = StorageManager()
+        # Directory system
+        self.directory_manager = DirectoryManager()
 
     def verify_file(self, filename: str, current_hash: str, content: str,
                    model_dir: Path) -> bool:
@@ -21,24 +21,24 @@ class Verify:
             filename: Name of the file being verified
             current_hash: Current hash of the file
             content: File content
-            model_dir: Model storage directory
+            model_dir: Model directory
 
         Returns:
             True if file is verified and storage updated, False otherwise.
         """
         if self.prompt_user_verification(filename, content):
             # Save file content
-            self.storage.save_file_content(model_dir, filename, content)
+            self.directory_manager.save_file_content(model_dir, filename, content)
 
             # Update metadata
-            metadata = self.storage.load_metadata(model_dir)
+            metadata = self.directory_manager.load_metadata(model_dir)
             metadata["files"][filename] = {
                 "hash": current_hash,
                 "size": len(content.encode('utf-8')),
                 "verified_at": datetime.now().isoformat()
             }
             metadata["last_verified"] = datetime.now().isoformat()
-            self.storage.save_metadata(model_dir, metadata)
+            self.directory_manager.save_metadata(model_dir, metadata)
 
             print("Trust confirmed. File content and hash updated.")
             return True
@@ -50,27 +50,27 @@ class Verify:
         """Update model hash in metadata.
 
         Args:
-            model_dir: Model storage directory
+            model_dir: Model directory
             new_hash: New model hash
         """
-        metadata = self.storage.load_metadata(model_dir)
+        metadata = self.directory_manager.load_metadata(model_dir)
         metadata["model_hash"] = new_hash
         metadata["last_verified"] = datetime.now().isoformat()
-        self.storage.save_metadata(model_dir, metadata)
+        self.directory_manager.save_metadata(model_dir, metadata)
         print(f"Model hash updated to: {new_hash}")
 
     def check_file_changed(self, model_dir: Path, filename: str, current_hash: str) -> bool:
-        """Check if file hash has changed in storage system.
+        """Check if file hash has changed in directory system.
 
         Args:
-            model_dir: Model storage directory
+            model_dir: Model directory
             filename: Filename to check
             current_hash: Current file hash
 
         Returns:
             True if file changed or is new, False if unchanged
         """
-        metadata = self.storage.load_metadata(model_dir)
+        metadata = self.directory_manager.load_metadata(model_dir)
         file_info = metadata.get("files", {}).get(filename)
 
         if file_info is None:
@@ -100,8 +100,8 @@ class Verify:
 
     def list_verified_hashes(self):
         """Display all verified models and hashes in a human-readable format."""
-        # Load from storage system
-        registry = self.storage.load_registry()
+        # Load from directory system
+        registry = self.directory_manager.load_registry()
         models = registry.get("models", {})
 
         if not models:
@@ -136,20 +136,20 @@ class Verify:
 
         if model_type == 'local':
             model_id = model_key.split('/', 1)[1]
-            return self.storage.local_dir / model_id
+            return self.directory_manager.local_dir / model_id
         elif model_type == 'hf':
             model_path = model_key.split('/', 1)[1]
             if '@' in model_path:
                 repo_parts, revision = model_path.rsplit('@', 1)
             else:
                 repo_parts, revision = model_path, 'main'
-            return self.storage.get_hf_model_dir(repo_parts, revision)
+            return self.directory_manager.get_hf_model_dir(repo_parts, revision)
 
         return None
 
     def _display_file_info(self, model_dir: Path) -> None:
         """Display file information for a model."""
-        metadata = self.storage.load_metadata(model_dir)
+        metadata = self.directory_manager.load_metadata(model_dir)
         files = metadata.get("files", {})
         if files:
             print("  Verified Files:")
@@ -159,22 +159,22 @@ class Verify:
             print("  Files: None verified")
 
     def delete_hash_file(self) -> bool:
-        """Delete the storage directory.
+        """Delete the directory.
 
         Returns:
             True if deletion was successful, False otherwise.
         """
         try:
-            if self.storage.base_dir.exists():
+            if self.directory_manager.base_dir.exists():
                 import shutil
-                shutil.rmtree(self.storage.base_dir)
+                shutil.rmtree(self.directory_manager.base_dir)
                 print("Storage directory deleted successfully.")
                 return True
             else:
                 print("Storage directory does not exist.")
                 return True
         except Exception as e:
-            print(f"Error deleting storage directory: {e}")
+            print(f"Error deleting directory: {e}")
             return False
 
     def get_unified_verification_result(self, target_spec: str) -> dict:
@@ -279,7 +279,7 @@ class Verify:
         elif target_type == "local" or "model_dir" in verification_result:
             # Local model - use storage manager to generate consistent ID
             model_path = Path(verification_result["model_dir"])
-            model_id = self.storage.generate_local_model_dir_name(model_path)
+            model_id = self.directory_manager.generate_local_model_dir_name(model_path)
             return f"local/{model_id}"
         else:
             raise ValueError("Unable to determine model type")

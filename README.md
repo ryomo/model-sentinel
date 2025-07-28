@@ -75,20 +75,20 @@ result = verify_hf_model("ryomo/malicious-code-test", gui=True)  # GUI window wi
 2. **File Verification**: If changes detected, check individual Python files
 3. **Content Display**: Show content of changed files (pager in CLI, web interface in GUI)
 4. **User Approval**: Only approve if user confirms content is trustworthy
-5. **Storage Update**: Save file content and metadata to `.model-sentinel/` directory structure
+5. **Directory Update**: Save file content and metadata to `.model-sentinel/` directory structure
 
-## Verification Storage
+## Verification Data Directory
 
 Verification data is stored in a structured `.model-sentinel/` directory:
 
 ```file
 .model-sentinel/
 ├── registry.json           # Global registry of verified models
-├── local/                  # Local model storage
+├── local/                  # Local models
 │   └── {model_name}_{hash}/
 │       ├── metadata.json   # Model metadata and file info
 │       └── files/          # Individual file content
-└── hf/                     # HuggingFace model storage
+└── hf/                     # HuggingFace models
     └── {org}/{model}@{revision}/
         ├── metadata.json
         └── files/

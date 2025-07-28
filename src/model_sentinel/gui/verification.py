@@ -27,7 +27,7 @@ def save_verification_results(
     verification_result: Dict[str, Any], approved_files: List[str]
 ) -> str:
     """
-    Save verification results using the storage system.
+    Save verification results using the directory system.
 
     Args:
         verification_result: Original verification result
@@ -46,26 +46,26 @@ def save_verification_results(
 
         verify = Verify()
 
-        # Determine model key and get storage directory
+        # Determine model key and get directory
         model_key = verify.get_model_key_from_result(verification_result)
         print(f"🔑 Model key: {model_key}")
 
-        # Get model storage directory
+        # Get model directory
         if verification_result.get("target_type") == "local":
             model_path = Path(verification_result["model_dir"])
-            model_dir = verify.storage.get_local_model_dir(model_path)
+            model_dir = verify.directory_manager.get_local_model_dir(model_path)
         else:
             repo_id = verification_result["repo_id"]
             revision = verification_result.get("revision", "main")
-            model_dir = verify.storage.get_hf_model_dir(repo_id, revision)
+            model_dir = verify.directory_manager.get_hf_model_dir(repo_id, revision)
 
         # Update model hash if changed
         if verification_result.get("new_model_hash"):
             verify.update_model_hash(model_dir, verification_result["new_model_hash"])
             print(f"🔄 Updated model hash: {verification_result['new_model_hash'][:16]}...")
 
-        # Update file hashes for approved files using storage system
-        approved_count = _update_approved_files_storage(
+        # Update file hashes for approved files using directory system
+        approved_count = _update_approved_files_directory(
             model_dir, verification_result, approved_files, verify
         )
 
@@ -74,9 +74,9 @@ def save_verification_results(
         kwargs = {}
         if verification_result.get("target_type") == "local":
             kwargs["original_path"] = verification_result["model_dir"]
-        verify.storage.register_model(model_type, model_id, **kwargs)
+        verify.directory_manager.register_model(model_type, model_id, **kwargs)
 
-        print("💾 Saved verification data to storage system")
+        print("💾 Saved verification data to directory system")
         return f"✅ Verification completed! {approved_count} files approved and saved."
 
     except Exception as e:
@@ -85,13 +85,13 @@ def save_verification_results(
         return error_msg
 
 
-def _update_approved_files_storage(
+def _update_approved_files_directory(
     model_dir: Path,
     verification_result: Dict[str, Any],
     approved_files: List[str],
     verify: Verify
 ) -> int:
-    """Update file hashes for approved files using storage system."""
+    """Update file hashes for approved files using directory system."""
     files_info = verification_result.get("files_info", [])
     approved_count = 0
 
@@ -102,17 +102,17 @@ def _update_approved_files_storage(
 
         if filename in approved_files and file_hash:
             # Save file content and update metadata
-            verify.storage.save_file_content(model_dir, filename, content)
+            verify.directory_manager.save_file_content(model_dir, filename, content)
 
             # Update metadata
-            metadata = verify.storage.load_metadata(model_dir)
+            metadata = verify.directory_manager.load_metadata(model_dir)
             metadata["files"][filename] = {
                 "hash": file_hash,
                 "size": len(content.encode('utf-8')),
                 "verified_at": datetime.now().isoformat()
             }
             metadata["last_verified"] = datetime.now().isoformat()
-            verify.storage.save_metadata(model_dir, metadata)
+            verify.directory_manager.save_metadata(model_dir, metadata)
 
             approved_count += 1
             print(f"✅ Approved file: {filename} - {file_hash[:16]}...")

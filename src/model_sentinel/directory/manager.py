@@ -1,4 +1,4 @@
-"""Storage manager for Model Sentinel verification data."""
+"""Directory manager for Model Sentinel verification data."""
 
 import hashlib
 import json
@@ -7,14 +7,14 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 
 
-class StorageManager:
+class DirectoryManager:
     """Manages .model-sentinel directory structure and data persistence."""
 
     def __init__(self, base_dir: Path = Path(".model-sentinel")):
-        """Initialize storage manager.
+        """Initialize directory manager.
 
         Args:
-            base_dir: Base directory for Model Sentinel data storage
+            base_dir: Base directory for Model Sentinel data directory
         """
         self.base_dir = Path(base_dir)
         self.registry_file = self.base_dir / "registry.json"
@@ -53,26 +53,26 @@ class StorageManager:
         return f"{readable_name}_{path_hash}"
 
     def get_local_model_dir(self, model_path: Path) -> Path:
-        """Get storage directory path for local model.
+        """Get directory path for local model.
 
         Args:
             model_path: Path to the local model directory
 
         Returns:
-            Path to storage directory for this model
+            Path to directory for this model
         """
         dir_name = self.generate_local_model_dir_name(model_path)
         return self.local_dir / dir_name
 
     def get_hf_model_dir(self, repo_id: str, revision: str = "main") -> Path:
-        """Get storage directory path for HuggingFace model.
+        """Get directory path for HuggingFace model.
 
         Args:
             repo_id: HuggingFace repository ID (e.g., "microsoft/DialoGPT-medium")
             revision: Model revision/branch
 
         Returns:
-            Path to storage directory for this model
+            Path to directory for this model
         """
         # Split repo_id into org/model format
         if "/" in repo_id:
@@ -109,7 +109,7 @@ class StorageManager:
         """Load metadata.json for a specific model.
 
         Args:
-            model_dir: Model storage directory
+            model_dir: Model directory
 
         Returns:
             Metadata dictionary
@@ -129,7 +129,7 @@ class StorageManager:
         """Save metadata.json for a specific model.
 
         Args:
-            model_dir: Model storage directory
+            model_dir: Model directory
             metadata: Metadata to save
         """
         model_dir.mkdir(parents=True, exist_ok=True)
@@ -142,7 +142,7 @@ class StorageManager:
         """Save file content to model's files directory.
 
         Args:
-            model_dir: Model storage directory
+            model_dir: Model directory
             filename: Original filename
             content: File content to save
         """
@@ -159,7 +159,7 @@ class StorageManager:
         """Load file content from model's files directory.
 
         Args:
-            model_dir: Model storage directory
+            model_dir: Model directory
             filename: Filename to load
 
         Returns:
@@ -176,7 +176,7 @@ class StorageManager:
         """Save original path information for local models.
 
         Args:
-            model_dir: Model storage directory
+            model_dir: Model directory
             original_path: Original model path
         """
         model_dir.mkdir(parents=True, exist_ok=True)
@@ -189,7 +189,7 @@ class StorageManager:
         """Load original path information for local models.
 
         Args:
-            model_dir: Model storage directory
+            model_dir: Model directory
 
         Returns:
             Original model path or None if not found

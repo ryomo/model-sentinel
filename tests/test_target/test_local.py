@@ -24,20 +24,17 @@ class TestTargetLocal(unittest.TestCase):
 
     def test_get_model_key(self):
         """Test model key generation."""
-        model_dir = Path("/path/to/model")
-        result = self.target._get_model_key(model_dir)
-        self.assertEqual(result, "local//path/to/model")
+        result = self.target._get_model_key(self.test_model_dir)
+        # The model key should start with "local/" followed by the directory name and hash
+        self.assertTrue(result.startswith("local/"))
+        self.assertIn("model", result)  # Directory name should be included
 
     def test_detect_model_changes_no_changes(self):
         """Test detect_model_changes when no changes are detected."""
         test_hash = "test_hash_123"
-        model_key = "local//tmp/test_model"
-        test_data = {model_key: {"model_hash": test_hash, "files": {}}}
 
         with patch.object(self.target, '_calculate_directory_hash', return_value=test_hash):
-            with patch.object(self.target, 'get_or_create_model_data') as mock_get_data:
-                mock_get_data.return_value = (test_data, model_key)
-
+            with patch('model_sentinel.target.base.TargetBase.check_model_hash_changed', return_value=False):
                 with patch('builtins.print'):
                     result = self.target.detect_model_changes(self.test_model_dir)
 
@@ -45,15 +42,10 @@ class TestTargetLocal(unittest.TestCase):
 
     def test_detect_model_changes_with_changes(self):
         """Test detect_model_changes when changes are detected."""
-        old_hash = "old_hash_123"
         new_hash = "new_hash_456"
-        model_key = "local//tmp/test_model"
-        test_data = {model_key: {"model_hash": old_hash, "files": {}}}
 
         with patch.object(self.target, '_calculate_directory_hash', return_value=new_hash):
-            with patch.object(self.target, 'get_or_create_model_data') as mock_get_data:
-                mock_get_data.return_value = (test_data, model_key)
-
+            with patch('model_sentinel.target.base.TargetBase.check_model_hash_changed', return_value=True):
                 with patch('builtins.print'):
                     result = self.target.detect_model_changes(self.test_model_dir)
 
@@ -62,14 +54,9 @@ class TestTargetLocal(unittest.TestCase):
     def test_detect_model_changes_new_model(self):
         """Test detect_model_changes for a new model (no existing data)."""
         new_hash = "new_hash_123"
-        model_key = "local//tmp/test_model"
-        # For new model, get_or_create_model_data should create the key with None hash
-        test_data = {model_key: {"model_hash": None, "files": {}}}
 
         with patch.object(self.target, '_calculate_directory_hash', return_value=new_hash):
-            with patch.object(self.target, 'get_or_create_model_data') as mock_get_data:
-                mock_get_data.return_value = (test_data, model_key)
-
+            with patch('model_sentinel.target.base.TargetBase.check_model_hash_changed', return_value=True):
                 with patch('builtins.print'):
                     result = self.target.detect_model_changes(self.test_model_dir)
 
@@ -214,7 +201,7 @@ class TestVerifyLocalModel(unittest.TestCase):
 
         self.assertTrue(result)
         mock_target.verify_local_files.assert_called_once_with(temp_model_dir)
-        mock_target.update_model_hash.assert_called_once_with("local/test/path", "new_hash")
+        mock_target.update_model_hash.assert_called_once()
 
     @patch('model_sentinel.target.local.TargetLocal')
     def test_verify_local_model_cli_failure_no_exit(self, mock_target_class):

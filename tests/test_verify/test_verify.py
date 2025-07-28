@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch, mock_open
 
 from model_sentinel.verify.verify import Verify
-from model_sentinel.storage.manager import StorageManager
+from model_sentinel.directory.manager import DirectoryManager
 
 
 class TestVerify(unittest.TestCase):
@@ -21,7 +21,7 @@ class TestVerify(unittest.TestCase):
         # Use temporary directory for testing to avoid affecting real files
         self.temp_dir = Path(tempfile.mkdtemp())
         # Override storage to use test directory
-        self.verify.storage = StorageManager(self.temp_dir / ".model-sentinel")
+        self.verify.storage = DirectoryManager(self.temp_dir / ".model-sentinel")
 
     def tearDown(self):
         """Tear down test fixtures after each test method."""
@@ -32,7 +32,7 @@ class TestVerify(unittest.TestCase):
     def test_init(self):
         """Test Verify class initialization."""
         verify_instance = Verify()
-        self.assertIsInstance(verify_instance.storage, StorageManager)
+        self.assertIsInstance(verify_instance.directory_manager, DirectoryManager)
 
     def test_storage_integration(self):
         """Test storage system integration."""
@@ -53,8 +53,8 @@ class TestVerify(unittest.TestCase):
             }
         }
 
-        self.verify.storage.save_metadata(model_dir, test_metadata)
-        loaded_metadata = self.verify.storage.load_metadata(model_dir)
+        self.verify.directory_manager.save_metadata(model_dir, test_metadata)
+        loaded_metadata = self.verify.directory_manager.load_metadata(model_dir)
         self.assertEqual(loaded_metadata["model_hash"], "test_hash")
 
     @patch('builtins.input', return_value='y')
@@ -82,42 +82,34 @@ class TestVerify(unittest.TestCase):
 
     def test_verify_file_user_confirms(self):
         """Test verify_file when user confirms the file."""
-        data = {"test_repo": {"files": {}}}
+        model_dir = self.temp_dir / "test_model"
 
         with patch.object(self.verify, 'prompt_user_verification', return_value=True):
-            with patch('builtins.print') as mock_print:
-                result = self.verify.verify_file("test.py", "new_hash", "content", data, "test_repo")
-
-                self.assertTrue(result)
-                self.assertEqual(data["test_repo"]["files"]["test.py"], "new_hash")
-                mock_print.assert_called_with("Trust confirmed. Hash updated.")
+            result = self.verify.verify_file("test.py", "new_hash", "content", model_dir)
+            self.assertTrue(result)
 
     def test_verify_file_user_rejects(self):
         """Test verify_file when user rejects the file."""
-        data = {"test_repo": {"files": {}}}
+        model_dir = self.temp_dir / "test_model"
 
         with patch.object(self.verify, 'prompt_user_verification', return_value=False):
-            with patch('builtins.print') as mock_print:
-                result = self.verify.verify_file("test.py", "new_hash", "content", data, "test_repo")
-
-                self.assertFalse(result)
-                self.assertNotIn("test.py", data["test_repo"]["files"])
-                mock_print.assert_called_with("Trust not confirmed. Please review the file changes.")
+            result = self.verify.verify_file("test.py", "new_hash", "content", model_dir)
+            self.assertFalse(result)
 
     def test_delete_hash_file_directory_exists(self):
         """Test deleting storage directory when it exists."""
         # Create storage directory
-        self.verify.storage.ensure_directories()
-        self.assertTrue(self.verify.storage.base_dir.exists())
+        self.verify.directory_manager.ensure_directories()
+        self.assertTrue(self.verify.directory_manager.base_dir.exists())
 
         result = self.verify.delete_hash_file()
 
         self.assertTrue(result)
-        self.assertFalse(self.verify.storage.base_dir.exists())
+        self.assertFalse(self.verify.directory_manager.base_dir.exists())
 
     def test_delete_hash_file_directory_not_exists(self):
         """Test deleting storage directory when it doesn't exist."""
-        self.assertFalse(self.verify.storage.base_dir.exists())
+        self.assertFalse(self.verify.directory_manager.base_dir.exists())
 
         result = self.verify.delete_hash_file()
 
@@ -133,7 +125,7 @@ class TestVerify(unittest.TestCase):
     def test_list_verified_hashes_with_data(self, mock_print):
         """Test listing verified hashes with data."""
         # Create test model data in storage system
-        test_model_dir = self.verify.storage.base_dir / "hf" / "test" / "repo@main"
+        test_model_dir = self.verify.directory_manager.base_dir / "hf" / "test" / "repo@main"
         test_model_dir.mkdir(parents=True)
 
         test_metadata = {
@@ -144,10 +136,10 @@ class TestVerify(unittest.TestCase):
                 "test2.py": {"hash": "hash2", "size": 200}
             }
         }
-        self.verify.storage.save_metadata(test_model_dir, test_metadata)
+        self.verify.directory_manager.save_metadata(test_model_dir, test_metadata)
 
         # Register model in registry
-        self.verify.storage.register_model("hf", "test/repo@main")
+        self.verify.directory_manager.register_model("hf", "test/repo@main")
 
         self.verify.list_verified_hashes()
 

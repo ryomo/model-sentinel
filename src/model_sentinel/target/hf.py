@@ -25,19 +25,19 @@ class TargetHF(TargetBase):
             print(f"Revision: {revision}")
         print(f"Current model hash: {current_hash}")
 
-        # Get storage directory for this model
-        storage_dir = self.storage.get_hf_model_dir(repo_id, revision or "main")
+        # Get directory for this model
+        model_dir_path = self.directory_manager.get_hf_model_dir(repo_id, revision or "main")
 
-        if not super().check_model_hash_changed(storage_dir, current_hash):
+        if not super().check_model_hash_changed(model_dir_path, current_hash):
             return None
 
         # Return current model hash to update later
         return current_hash
 
     def update_model_hash_for_repo(self, repo_id, revision, new_model_hash):
-        """Update the model hash using storage system."""
-        storage_dir = self.storage.get_hf_model_dir(repo_id, revision or "main")
-        super().update_model_hash(storage_dir, new_model_hash)
+        """Update the model hash using directory system."""
+        model_dir_path = self.directory_manager.get_hf_model_dir(repo_id, revision or "main")
+        super().update_model_hash(model_dir_path, new_model_hash)
 
     def verify_remote_files(self, repo_id, revision=None) -> bool:
         """Check remote .py files for changes and prompt for verification.
@@ -54,8 +54,8 @@ class TargetHF(TargetBase):
         if revision:
             print(f"Revision: {revision}")
 
-        # Get storage directory for this model
-        storage_dir = self.storage.get_hf_model_dir(repo_id, revision or "main")
+        # Get directory path for this model
+        model_dir_path = self.directory_manager.get_hf_model_dir(repo_id, revision or "main")
 
         # Prepare files for verification using common workflow
         files_to_check = []
@@ -78,7 +78,7 @@ class TargetHF(TargetBase):
                     return False
 
         # Use common verification workflow
-        return self._verify_files_workflow(files_to_check, storage_dir)
+        return self._verify_files_workflow(files_to_check, model_dir_path)
 
     def _download_file_content(self, hf_api, repo_id, revision, filename) -> str | None:
         """Download file content from HuggingFace.
@@ -105,7 +105,7 @@ class TargetHF(TargetBase):
             return None
 
     def _get_repo_key(self, repo_id, revision=None):
-        """Generate repository key for data storage with hf/ prefix."""
+        """Generate repository key for data directory with hf/ prefix."""
         base_key = f"{repo_id}@{revision}" if revision else repo_id
         return f"hf/{base_key}"
 

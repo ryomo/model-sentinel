@@ -22,10 +22,10 @@ class TargetLocal(TargetBase):
         current_hash = self._calculate_directory_hash(model_dir, "*.py")
         print(f"Directory hash: {current_hash}")
 
-        # Get storage directory for this model
-        storage_dir = self.get_model_storage_dir(f"local/{self.storage.generate_local_model_dir_name(model_dir)}", model_dir)
+        # Get directory for this model
+        model_dir_path = self.get_model_directory_path(f"local/{self.directory_manager.generate_local_model_dir_name(model_dir)}", model_dir)
 
-        if not super().check_model_hash_changed(storage_dir, current_hash):
+        if not super().check_model_hash_changed(model_dir_path, current_hash):
             return None
 
         # Return current model hash to update later
@@ -40,9 +40,9 @@ class TargetLocal(TargetBase):
         """
         print(f"Checking Python files in directory: {model_dir}")
 
-        # Get storage directory for this model
+        # Get directory for this model
         model_key = self._get_model_key(model_dir)
-        storage_dir = self.get_model_storage_dir(model_key, model_dir)
+        model_dir_path = self.get_model_directory_path(model_key, model_dir)
 
         # Prepare files for verification using common workflow
         files_to_check = []
@@ -64,11 +64,11 @@ class TargetLocal(TargetBase):
             )
 
         # Use common verification workflow
-        return self._verify_files_workflow(files_to_check, storage_dir)
+        return self._verify_files_workflow(files_to_check, model_dir_path)
 
     def _get_model_key(self, model_dir: Path) -> str:
-        """Generate model key for data storage."""
-        model_id = self.storage.generate_local_model_dir_name(model_dir)
+        """Generate model key for data directory."""
+        model_id = self.directory_manager.generate_local_model_dir_name(model_dir)
         return f"local/{model_id}"
 
     def get_files_for_verification(self, model_dir: Path) -> list[dict[str, str]]:
@@ -177,13 +177,13 @@ def _handle_cli_verification(target: TargetLocal, model_dir: Path, new_model_has
     print(f"File check result: {verified_all}")
 
     if verified_all:
-        # Get storage directory and update hash
+        # Get directory and update hash
         model_key = target._get_model_key(model_dir)
-        storage_dir = target.get_model_storage_dir(model_key, model_dir)
-        target.update_model_hash(storage_dir, new_model_hash)
+        model_dir_path = target.get_model_directory_path(model_key, model_dir)
+        target.update_model_hash(model_dir_path, new_model_hash)
 
         # Register in global registry
-        target.register_model_in_registry("local", target.storage.generate_local_model_dir_name(model_dir), str(model_dir))
+        target.register_model_in_registry("local", target.directory_manager.generate_local_model_dir_name(model_dir), str(model_dir))
 
         print("Verified model hash updated.")
         return True

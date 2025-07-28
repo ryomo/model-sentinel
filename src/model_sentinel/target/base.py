@@ -2,7 +2,7 @@ import hashlib
 from pathlib import Path
 
 from model_sentinel.verify.verify import Verify
-from model_sentinel.storage.manager import StorageManager
+from model_sentinel.directory.manager import DirectoryManager
 
 # Constants
 VERIFICATION_FAILED_MESSAGE = "Model verification failed. Exiting for security reasons."
@@ -15,7 +15,7 @@ class TargetBase:
 
     def __init__(self):
         self.verify = Verify()
-        self.storage = StorageManager()
+        self.directory_manager = DirectoryManager()
 
     def _calculate_file_hash(self, file_path: Path | str) -> str:
         """
@@ -93,17 +93,17 @@ class TargetBase:
         self, files_to_check: list[dict], model_dir: Path
     ) -> bool:
         """
-        Common workflow for verifying multiple files using storage system.
+        Common workflow for verifying multiple files using directory system.
 
         Args:
             files_to_check: List of dicts with 'path', 'filename', 'hash', 'content'
-            model_dir: Model storage directory
+            model_dir: Model directory
 
         Returns:
             bool: True if all files verified successfully
         """
         # Ensure storage directories exist
-        self.storage.ensure_directories()
+        self.directory_manager.ensure_directories()
 
         all_verified = True
 
@@ -123,50 +123,50 @@ class TargetBase:
 
         return all_verified
 
-    def get_model_storage_dir(self, model_key: str, model_path: Path = None) -> Path:
+    def get_model_directory_path(self, model_key: str, model_path: Path = None) -> Path:
         """
-        Get storage directory for model based on type.
+        Get directory path for model based on type.
 
         Args:
             model_key: Model key (e.g., "local/bert_a1b2c3d4" or "hf/microsoft/DialoGPT-medium@main")
             model_path: Original model path (for local models)
 
         Returns:
-            Path to model storage directory
+            Path to model directory
         """
         model_type, model_id = model_key.split('/', 1)
 
         if model_type == "local":
             if model_path:
                 # Generate directory name and create if needed
-                model_dir = self.storage.get_local_model_dir(model_path)
+                model_dir = self.directory_manager.get_local_model_dir(model_path)
                 # Save original path
-                self.storage.save_original_path(model_dir, str(model_path))
+                self.directory_manager.save_original_path(model_dir, str(model_path))
                 return model_dir
             else:
                 # Use existing directory name
-                return self.storage.local_dir / model_id
+                return self.directory_manager.local_dir / model_id
         elif model_type == "hf":
             if '@' in model_id:
                 repo_id, revision = model_id.rsplit('@', 1)
             else:
                 repo_id, revision = model_id, 'main'
-            return self.storage.get_hf_model_dir(repo_id, revision)
+            return self.directory_manager.get_hf_model_dir(repo_id, revision)
         else:
             raise ValueError(f"Unknown model type: {model_type}")
 
     def check_model_hash_changed(self, model_dir: Path, current_hash: str) -> bool:
         """
-        Check if model hash has changed using storage system.
+        Check if model hash has changed using directory system.
 
         Args:
-            model_dir: Model storage directory
+            model_dir: Model directory
             current_hash: Current hash to compare
 
         Returns:
             bool: True if hash changed or is new, False if unchanged
         """
-        metadata = self.storage.load_metadata(model_dir)
+        metadata = self.directory_manager.load_metadata(model_dir)
         previous_hash = metadata.get("model_hash")
 
         if previous_hash == current_hash:
@@ -183,7 +183,7 @@ class TargetBase:
         return True
 
     def update_model_hash(self, model_dir: Path, new_hash: str):
-        """Update model hash using storage system."""
+        """Update model hash using directory system."""
         self.verify.update_model_hash(model_dir, new_hash)
 
     def register_model_in_registry(self, model_type: str, model_id: str, original_path: str = None):
@@ -191,4 +191,4 @@ class TargetBase:
         kwargs = {}
         if original_path:
             kwargs["original_path"] = original_path
-        self.storage.register_model(model_type, model_id, **kwargs)
+        self.directory_manager.register_model(model_type, model_id, **kwargs)
