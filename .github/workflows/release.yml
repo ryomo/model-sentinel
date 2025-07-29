@@ -1,0 +1,147 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.12"
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@v2
+      with:
+        version: "latest"
+
+    - name: Install dependencies
+      run: |
+        uv sync --frozen
+
+    - name: Build package
+      run: |
+        uv build
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: dist
+        path: dist/
+
+  test-built-package:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - name: Download build artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: dist
+        path: dist/
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.12"
+
+    - name: Test installation from wheel
+      run: |
+        pip install dist/*.whl
+        model-sentinel --version
+        python -c "import model_sentinel; print(f'Package version: {model_sentinel.__version__}')"
+
+  publish-testpypi:
+    needs: [build, test-built-package]
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+    - name: Download build artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: dist
+        path: dist/
+
+    - name: Publish to TestPyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        repository-url: https://test.pypi.org/legacy/
+        verbose: true
+
+    - name: Test installation from TestPyPI
+      run: |
+        sleep 30  # Wait for TestPyPI to process the upload
+        pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ model-sentinel
+        model-sentinel --version
+
+  publish-pypi:
+    needs: [build, test-built-package, publish-testpypi]
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+    steps:
+    - name: Download build artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: dist
+        path: dist/
+
+    - name: Publish to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+      with:
+        verbose: true
+
+  create-github-release:
+    needs: [publish-pypi]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Extract tag name
+      id: tag
+      run: echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+    - name: Download build artifacts
+      uses: actions/download-artifact@v3
+      with:
+        name: dist
+        path: dist/
+
+    - name: Create Release Archive
+      run: |
+        cd dist
+        zip -r ../model-sentinel-${{ steps.tag.outputs.tag }}-dist.zip .
+        cd ..
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ steps.tag.outputs.tag }}
+        name: Release ${{ steps.tag.outputs.tag }}
+        body: |
+          ## Changes in ${{ steps.tag.outputs.tag }}
+
+          This release has been automatically published to PyPI.
+
+          ### Installation
+          ```bash
+          pip install model-sentinel==${{ steps.tag.outputs.tag }}
+          ```
+
+          ### Links
+          - [PyPI Package](https://pypi.org/project/model-sentinel/${{ steps.tag.outputs.tag }}/)
+          - [Changelog](https://github.com/ryomo/model-sentinel/blob/main/CHANGELOG.md)
+
+          **Note**: This release was created automatically by GitHub Actions.
+        files: |
+          model-sentinel-${{ steps.tag.outputs.tag }}-dist.zip
+        draft: false
+        prerelease: false
