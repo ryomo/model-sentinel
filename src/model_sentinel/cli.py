@@ -1,21 +1,28 @@
-from model_sentinel import Verify, verify_hf_model, verify_local_model, __version__
+import argparse
+
+from model_sentinel import Verify, __version__, verify_hf_model, verify_local_model
 
 
 def main():
-    import argparse
 
     DEFAULT_REVISION = "main"
 
     parser = argparse.ArgumentParser(description="Model Sentinel CLI")
     parser.add_argument(
-        "--version",
-        action="version",
-        version=f"model-sentinel {__version__}"
+        "--version", action="version", version=f"model-sentinel {__version__}"
     )
-    parser.add_argument("--delete", action="store_true", help="Delete the hash file")
     parser.add_argument(
-        "--list-verified", action="store_true", help="List all verified hashes"
+        "--hf",
+        type=str,
+        help="Hugging Face repository ID (e.g., ryomo/malicious-code-test)",
     )
+    parser.add_argument(
+        "--revision",
+        type=str,
+        default=DEFAULT_REVISION,
+        help=f"Model revision/branch (default: {DEFAULT_REVISION})",
+    )
+    parser.add_argument("--local", type=str, help="Path to local model directory")
     parser.add_argument("--gui", action="store_true", help="Launch GUI interface")
     parser.add_argument(
         "--host",
@@ -30,17 +37,9 @@ def main():
         help="GUI server port (default: 7860)",
     )
     parser.add_argument(
-        "--hf",
-        type=str,
-        help="Hugging Face repository ID (e.g., ryomo/malicious-code-test)",
+        "--list-verified", action="store_true", help="List all verified hashes"
     )
-    parser.add_argument(
-        "--revision",
-        type=str,
-        default=DEFAULT_REVISION,
-        help=f"Model revision/branch (default: {DEFAULT_REVISION})",
-    )
-    parser.add_argument("--local", type=str, help="Path to local model directory")
+    parser.add_argument("--delete", action="store_true", help="Delete the hash file")
     args = parser.parse_args()
 
     if args.gui:
@@ -54,13 +53,11 @@ def main():
                     repo_id=args.hf,
                     revision=args.revision,
                     host=args.host,
-                    port=args.port
+                    port=args.port,
                 )
             elif args.local:
                 launch_verification_gui(
-                    model_dir=args.local,
-                    host=args.host,
-                    port=args.port
+                    model_dir=args.local, host=args.host, port=args.port
                 )
             else:
                 launch_verification_gui(host=args.host, port=args.port)
