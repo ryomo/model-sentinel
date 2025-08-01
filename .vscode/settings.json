@@ -1,7 +1,7 @@
 {
     "github.copilot.chat.commitMessageGeneration.instructions": [
         {
-            "text": "Write commit messages in concise English using the conventional commit message format."
+            "text": "Use concise conventional commit messages with a type prefix (e.g. fix:, feat:, docs:, chore:, refactor:, or test:)."
         }
     ]
 }
