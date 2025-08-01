@@ -275,17 +275,17 @@ class TestVerifyHFModel(unittest.TestCase):
 
         self.assertFalse(result)
 
-    def test_verify_hf_model_gui_import_error(self):
+    @patch('model_sentinel.target.hf.TargetHF')
+    def test_verify_hf_model_gui_import_error(self, mock_target_class):
         """Test verify_hf_model GUI mode when gradio is not available."""
-        with patch('model_sentinel.target.hf.TargetHF') as mock_target_class:
-            mock_target = Mock()
-            mock_target_class.return_value = mock_target
-            mock_target.detect_model_changes.return_value = "new_hash"
+        mock_target = Mock()
+        mock_target_class.return_value = mock_target
+        mock_target.detect_model_changes.return_value = "new_hash"
 
-            # Mock ImportError for GUI
-            with patch('builtins.__import__', side_effect=ImportError):
-                with patch('builtins.print'):
-                    result = verify_hf_model(self.test_repo_id, self.test_revision, gui=True, exit_on_reject=False)
+        # Mock ImportError for GUI using sys.modules
+        with patch('builtins.print'):
+            with patch.dict('sys.modules', {'model_sentinel.gui.main': None}):
+                result = verify_hf_model(self.test_repo_id, self.test_revision, gui=True, exit_on_reject=False)
 
         self.assertFalse(result)
 

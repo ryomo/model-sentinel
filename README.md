@@ -167,7 +167,7 @@ uv run python -m coverage html --include="src/*"
 
 ## Technical Specifications
 
-- **Python**: 3.12+
+- **Python**: 3.10+
 - **Package Manager**: uv
 - **GUI Framework**: Gradio 5.x
 - **Hash Algorithm**: SHA-256

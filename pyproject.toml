@@ -26,13 +26,13 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.10",
     "Topic :: Security",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Software Development :: Quality Assurance",
     "Topic :: Software Development :: Testing"
 ]
-requires-python = ">=3.12"
+requires-python = ">=3.10"
 dependencies = [
     "huggingface-hub>=0.33.0",
     "platformdirs>=4.3.8",
