@@ -1,4 +1,4 @@
-from model_sentinel import Verify, verify_hf_model, verify_local_model
+from model_sentinel import Verify, verify_hf_model, verify_local_model, __version__
 
 
 def main():
@@ -7,6 +7,11 @@ def main():
     DEFAULT_REVISION = "main"
 
     parser = argparse.ArgumentParser(description="Model Sentinel CLI")
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"model-sentinel {__version__}"
+    )
     parser.add_argument("--delete", action="store_true", help="Delete the hash file")
     parser.add_argument(
         "--list-verified", action="store_true", help="List all verified hashes"
