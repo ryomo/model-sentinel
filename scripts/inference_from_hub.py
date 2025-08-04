@@ -13,10 +13,7 @@ def main():
     REVISION = "main"
     print(f"Using repository: {REPO_NAME} at revision: {REVISION}")
 
-    if not verify_hf_model(REPO_NAME, REVISION):
-        print(f"Repository {REPO_NAME} at revision {REVISION} is not verified.")
-        print("Please verify all remote files in the repository before proceeding.")
-        return
+    verify_hf_model(REPO_NAME, REVISION, gui=True)
 
     # Load model and tokenizer from Hub
     print("Loading model from Hugging Face Hub...")
