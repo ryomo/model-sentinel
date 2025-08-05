@@ -171,19 +171,19 @@ This project uses GitHub Actions to automatically publish to PyPI when a new ver
 
 **Steps:**
 
-1. Update the version in `pyproject.toml` and `src/model_sentinel/__init__.py`.
-2. Run `uv sync` to update `uv.lock`.
-3. Commit and push your changes:
+1. Run `uv run python scripts/bump_version.py 1.2.3` (replace `1.2.3` with the new version number).
+
+    The script will automatically update the version number in the following files:
+    - `pyproject.toml`
+    - `src/model_sentinel/__init__.py`
+
+2. Follow the recommended commands shown in the output like below.
 
     ```sh
-    git add -u
+    uv sync
+    git add pyproject.toml src/model_sentinel/__init__.py uv.lock
     git commit -m "chore: bump version to v1.2.3"
     git push
-    ```
-
-4. Create and push a new tag:
-
-    ```sh
     git tag v1.2.3
     git push origin v1.2.3
     ```
