@@ -4,6 +4,8 @@ Main GUI interface for Model Sentinel.
 
 from typing import Any, Dict, List, Optional
 
+from model_sentinel.verify.verify import Verify
+
 try:
     import gradio as gr
 except ImportError:
@@ -18,7 +20,6 @@ from .components import (
     create_simple_interface,
     create_verification_summary,
 )
-from .verification import get_verification_result
 
 
 def _build_launch_kwargs(host: Optional[str] = None, port: Optional[int] = None) -> Dict[str, Any]:
@@ -53,22 +54,26 @@ def launch_verification_gui(
     """
     if repo_id:
         try:
-            result = get_verification_result(repo_id)
+            verify = Verify()
+            result = verify.verify_hf_model(repo_id)
             return _launch_gui_with_result(result, "Hugging Face", host, port)
         except Exception as e:
             print(f"Error accessing repository: {str(e)}")
             return False
+
     elif model_dir:
         try:
-            result = get_verification_result(model_dir)
+            verify = Verify()
+            result = verify.verify_local_model(model_dir)
             return _launch_gui_with_result(result, "Local", host, port)
         except Exception as e:
             print(f"Error accessing model directory: {str(e)}")
             return False
+
     else:
+        # No model specified, launch simple interface
         demo = create_simple_interface()
         launch_kwargs = _build_launch_kwargs(host, port)
-        
         demo.launch(
             share=False,
             inbrowser=True,
@@ -100,7 +105,7 @@ def _launch_gui_with_result(
     demo = create_verification_gui(result, files_to_verify, gui_state)
 
     print(f"🚀 Launching {model_type} model verification GUI")
-    
+
     # Build dynamic URL if port is available
     if port is not None:
         server_host = host if host is not None else "127.0.0.1"
@@ -111,7 +116,7 @@ def _launch_gui_with_result(
     # If no files to verify (already verified), auto-close after short display
     if not files_to_verify:
         launch_kwargs = _build_launch_kwargs(host, port)
-            
+
         demo.launch(
             share=False,
             inbrowser=True,
@@ -138,7 +143,7 @@ def _launch_gui_with_result(
 
     # Launch demo
     launch_kwargs = _build_launch_kwargs(host, port)
-    
+
     demo.launch(
         share=False,
         inbrowser=True,

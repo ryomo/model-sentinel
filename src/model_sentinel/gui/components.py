@@ -4,6 +4,8 @@ GUI components for Model Sentinel verification interface.
 
 from typing import Any, Dict, List
 
+from model_sentinel.verify.verify import Verify
+
 try:
     import gradio as gr
 except ImportError:
@@ -189,9 +191,8 @@ def create_final_verification_interface(
         # Check if all files are approved
         if len(approved_files) == total_files and total_files > 0:
             # All files approved - save and return success
-            from .verification import save_verification_results
-
-            save_verification_results(verification_result, approved_files)
+            verify = Verify()
+            verify.save_verification_results(verification_result, approved_files)
             gui_state["verification_result"] = True
 
             # Display completion message to user

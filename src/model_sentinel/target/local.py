@@ -33,7 +33,7 @@ class TargetLocal(TargetBase):
 
     def verify_local_files(self, model_dir: Path) -> bool:
         """
-        Check local .py files for changes and prompt for verification.
+        Check local *.py files for changes and prompt for verification.
 
         Returns:
             True if all files are verified, False otherwise.

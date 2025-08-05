@@ -40,7 +40,7 @@ class TargetHF(TargetBase):
         super().update_model_hash(model_dir_path, new_model_hash)
 
     def verify_remote_files(self, repo_id, revision=None) -> bool:
-        """Check remote .py files for changes and prompt for verification.
+        """Check remote *.py files for changes and prompt for verification.
 
         Returns:
             True if all files are verified, False otherwise.
