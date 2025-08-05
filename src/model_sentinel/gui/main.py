@@ -55,7 +55,7 @@ def launch_verification_gui(
     if repo_id:
         try:
             verify = Verify()
-            result = verify.verify_hf_model(repo_id)
+            result = verify.verify_hf_model(repo_id, revision)
             return _launch_gui_with_result(result, "Hugging Face", host, port)
         except Exception as e:
             print(f"Error accessing repository: {str(e)}")

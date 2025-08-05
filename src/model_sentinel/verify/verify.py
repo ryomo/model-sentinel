@@ -177,12 +177,11 @@ class Verify:
             print(f"Error deleting directory: {e}")
             return False
 
-    def verify_hf_model(self, repo_id: str) -> dict:
+    def verify_hf_model(self, repo_id: str, revision: str = "main") -> dict:
         """Verify HF model and return result."""
         from model_sentinel.target.hf import TargetHF
 
         target = TargetHF()
-        revision = "main"  # Default revision for GUI
 
         new_model_hash = target.detect_model_changes(repo_id, revision)
 
