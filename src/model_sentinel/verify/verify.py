@@ -1,17 +1,16 @@
 import pydoc
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from model_sentinel.directory.manager import DirectoryManager
+from model_sentinel.verify.storage import StorageManager
 
 
 class Verify:
     """Base class for verifying model changes and file integrity."""
 
     def __init__(self):
-        # Directory system
-        self.directory_manager = DirectoryManager()
+        # Storage system
+        self.storage = StorageManager()
 
     def _update_file_metadata(
         self, model_dir: Path, filename: str, file_hash: str, content: str
@@ -25,17 +24,17 @@ class Verify:
             content: File content
         """
         # Save file content
-        self.directory_manager.save_file_content(model_dir, filename, content)
+        self.storage.save_file_content(model_dir, filename, content)
 
         # Update metadata
-        metadata = self.directory_manager.load_metadata(model_dir)
+        metadata = self.storage.load_metadata(model_dir)
         metadata["files"][filename] = {
             "hash": file_hash,
             "size": len(content.encode("utf-8")),
-            "verified_at": datetime.now().isoformat(),
+            "verified_at": self.storage.get_current_timestamp(),
         }
-        metadata["last_verified"] = datetime.now().isoformat()
-        self.directory_manager.save_metadata(model_dir, metadata)
+        metadata["last_verified"] = self.storage.get_current_timestamp()
+        self.storage.save_metadata(model_dir, metadata)
 
     def verify_file(
         self, filename: str, current_hash: str, content: str, model_dir: Path
@@ -80,16 +79,16 @@ class Verify:
             model_dir: Model directory
             new_hash: New model hash
         """
-        metadata = self.directory_manager.load_metadata(model_dir)
+        metadata = self.storage.load_metadata(model_dir)
         metadata["model_hash"] = new_hash
-        metadata["last_verified"] = datetime.now().isoformat()
-        self.directory_manager.save_metadata(model_dir, metadata)
+        metadata["last_verified"] = self.storage.get_current_timestamp()
+        self.storage.save_metadata(model_dir, metadata)
         print(f"Model hash updated to: {new_hash}")
 
     def check_file_changed(
         self, model_dir: Path, filename: str, current_hash: str
     ) -> bool:
-        """Check if file hash has changed in directory system.
+        """Check if file hash has changed in storage system.
 
         Args:
             model_dir: Model directory
@@ -99,7 +98,7 @@ class Verify:
         Returns:
             True if file changed or is new, False if unchanged
         """
-        metadata = self.directory_manager.load_metadata(model_dir)
+        metadata = self.storage.load_metadata(model_dir)
         file_info = metadata.get("files", {}).get(filename)
 
         if file_info is None:
@@ -116,8 +115,8 @@ class Verify:
 
     def list_verified_hashes(self):
         """Display all verified models and hashes in a human-readable format."""
-        # Load from directory system
-        registry = self.directory_manager.load_registry()
+        # Load from storage system
+        registry = self.storage.load_registry()
         models = registry.get("models", {})
 
         if not models:
@@ -152,45 +151,30 @@ class Verify:
         model_key: str = None,
         model_info: dict = None,
     ) -> Path | None:
-        """Resolve model directory from verification result or model info.
-
-        Args:
-            verification_result: Verification result dictionary
-            model_key: Model key (for registry lookup)
-            model_info: Model info dictionary
-
-        Returns:
-            Model directory path or None if not found
-        """
+        """Resolve model directory from verification result or model info."""
         if verification_result:
-            # From verification result
             if verification_result.get("target_type") == "local":
-                model_path = Path(verification_result["model_dir"])
-                return self.directory_manager.get_local_model_dir(model_path)
+                return self.storage.get_local_model_dir(Path(verification_result["model_dir"]))
             else:
-                repo_id = verification_result["repo_id"]
-                revision = verification_result.get("revision", "main")
-                return self.directory_manager.get_hf_model_dir(repo_id, revision)
+                return self.storage.get_hf_model_dir(
+                    verification_result["repo_id"],
+                    verification_result.get("revision", "main")
+                )
 
         elif model_key and model_info:
-            # From model registry info
             model_type = model_info.get("type")
             if model_type == "local":
-                model_id = model_key.split("/", 1)[1]
-                return self.directory_manager.local_dir / model_id
+                return self.storage.local_dir / model_key.split("/", 1)[1]
             elif model_type == "hf":
                 model_path = model_key.split("/", 1)[1]
-                if "@" in model_path:
-                    repo_parts, revision = model_path.rsplit("@", 1)
-                else:
-                    repo_parts, revision = model_path, "main"
-                return self.directory_manager.get_hf_model_dir(repo_parts, revision)
+                repo_parts, revision = model_path.rsplit("@", 1) if "@" in model_path else (model_path, "main")
+                return self.storage.get_hf_model_dir(repo_parts, revision)
 
         return None
 
     def _display_file_info(self, model_dir: Path) -> None:
         """Display file information for a model."""
-        metadata = self.directory_manager.load_metadata(model_dir)
+        metadata = self.storage.load_metadata(model_dir)
         files = metadata.get("files", {})
         if files:
             print("  Verified Files:")
@@ -206,10 +190,10 @@ class Verify:
             True if deletion was successful, False otherwise.
         """
         try:
-            if self.directory_manager.base_dir.exists():
+            if self.storage.base_dir.exists():
                 import shutil
 
-                shutil.rmtree(self.directory_manager.base_dir)
+                shutil.rmtree(self.storage.base_dir)
                 print("Storage directory deleted successfully.")
                 return True
             else:
@@ -291,18 +275,12 @@ class Verify:
 
     def get_model_key_from_result(self, verification_result: dict) -> str:
         """Get model key from verification result."""
-        target_type = verification_result.get("target_type")
-
-        if target_type == "hf" or "repo_id" in verification_result:
-            # HF model
-            repo_id = verification_result["repo_id"]
-            revision = verification_result.get("revision")
-            return f"hf/{repo_id}@{revision}" if revision else f"hf/{repo_id}"
-        elif target_type == "local" or "model_dir" in verification_result:
-            # Local model - use storage manager to generate consistent ID
-            model_path = Path(verification_result["model_dir"])
-            model_id = self.directory_manager.generate_local_model_dir_name(model_path)
-            return f"local/{model_id}"
+        if verification_result.get("target_type") == "hf" or "repo_id" in verification_result:
+            model_id = f"{verification_result['repo_id']}@{verification_result.get('revision', 'main')}"
+            return self.storage.get_model_key("hf", model_id)
+        elif verification_result.get("target_type") == "local" or "model_dir" in verification_result:
+            model_id = self.storage.generate_local_model_dir_name(Path(verification_result["model_dir"]))
+            return self.storage.get_model_key("local", model_id)
         else:
             raise ValueError("Unable to determine model type")
 
@@ -351,9 +329,9 @@ class Verify:
             kwargs = {}
             if verification_result.get("target_type") == "local":
                 kwargs["original_path"] = verification_result["model_dir"]
-            self.directory_manager.register_model(model_type, model_id, **kwargs)
+            self.storage.register_model(model_type, model_id, **kwargs)
 
-            print("💾 Saved verification data to directory system")
+            print("💾 Saved verification data to storage system")
             return (
                 f"✅ Verification completed! {approved_count} files approved and saved."
             )
@@ -369,7 +347,7 @@ class Verify:
         verification_result: dict[str, Any],
         approved_files: list[str],
     ) -> int:
-        """Update file hashes for approved files using directory system."""
+        """Update file hashes for approved files using storage system."""
         files_info = verification_result.get("files_info", [])
         approved_count = 0
 

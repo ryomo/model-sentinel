@@ -23,7 +23,7 @@ class TargetLocal(TargetBase):
         print(f"Directory hash: {current_hash}")
 
         # Get directory for this model
-        model_dir_path = self.get_model_directory_path(f"local/{self.directory_manager.generate_local_model_dir_name(model_dir)}", model_dir)
+        model_dir_path = self.get_model_directory_path(f"local/{self.storage.generate_local_model_dir_name(model_dir)}", model_dir)
 
         if not super().check_model_hash_changed(model_dir_path, current_hash):
             return None
@@ -68,7 +68,7 @@ class TargetLocal(TargetBase):
 
     def _get_model_key(self, model_dir: Path) -> str:
         """Generate model key for data directory."""
-        model_id = self.directory_manager.generate_local_model_dir_name(model_dir)
+        model_id = self.storage.generate_local_model_dir_name(model_dir)
         return f"local/{model_id}"
 
     def get_files_for_verification(self, model_dir: Path) -> list[dict[str, str]]:
@@ -163,7 +163,7 @@ def _handle_cli_verification(
         # Register in global registry
         target.register_model_in_registry(
             "local",
-            target.directory_manager.generate_local_model_dir_name(model_dir),
+            target.storage.generate_local_model_dir_name(model_dir),
             str(model_dir),
         )
 

@@ -26,7 +26,7 @@ class TargetHF(TargetBase):
         print(f"Current model hash: {current_hash}")
 
         # Get directory for this model
-        model_dir_path = self.directory_manager.get_hf_model_dir(repo_id, revision or "main")
+        model_dir_path = self.storage.get_hf_model_dir(repo_id, revision or "main")
 
         if not super().check_model_hash_changed(model_dir_path, current_hash):
             return None
@@ -36,7 +36,7 @@ class TargetHF(TargetBase):
 
     def update_model_hash_for_repo(self, repo_id, revision, new_model_hash):
         """Update the model hash using directory system."""
-        model_dir_path = self.directory_manager.get_hf_model_dir(repo_id, revision or "main")
+        model_dir_path = self.storage.get_hf_model_dir(repo_id, revision or "main")
         super().update_model_hash(model_dir_path, new_model_hash)
 
     def verify_remote_files(self, repo_id, revision=None) -> bool:
@@ -55,7 +55,7 @@ class TargetHF(TargetBase):
             print(f"Revision: {revision}")
 
         # Get directory path for this model
-        model_dir_path = self.directory_manager.get_hf_model_dir(repo_id, revision or "main")
+        model_dir_path = self.storage.get_hf_model_dir(repo_id, revision or "main")
 
         # Prepare files for verification using common workflow
         files_to_check = []

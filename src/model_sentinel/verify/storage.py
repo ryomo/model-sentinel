@@ -1,4 +1,4 @@
-"""Directory manager for Model Sentinel verification data."""
+"""Storage manager for Model Sentinel verification data."""
 
 import hashlib
 import json
@@ -7,11 +7,11 @@ from pathlib import Path
 from typing import Dict, Any, Optional
 
 
-class DirectoryManager:
+class StorageManager:
     """Manages .model-sentinel directory structure and data persistence."""
 
     def __init__(self, base_dir: Path = Path(".model-sentinel")):
-        """Initialize directory manager.
+        """Initialize storage manager.
 
         Args:
             base_dir: Base directory for Model Sentinel data directory
@@ -21,7 +21,7 @@ class DirectoryManager:
         self.hf_dir = self.base_dir / "hf"
         self.local_dir = self.base_dir / "local"
 
-    def _get_current_timestamp(self) -> str:
+    def get_current_timestamp(self) -> str:
         """Get current timestamp in ISO format.
 
         Returns:
@@ -226,7 +226,7 @@ class DirectoryManager:
 
         model_info = {
             "type": model_type,
-            "last_verified": self._get_current_timestamp(),
+            "last_verified": self.get_current_timestamp(),
             "status": "verified",
             **kwargs
         }

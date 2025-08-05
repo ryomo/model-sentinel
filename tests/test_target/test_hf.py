@@ -72,7 +72,7 @@ class TestTargetHF(unittest.TestCase):
     def test_update_model_hash_for_repo(self):
         """Test updating model hash for repository."""
         # Create test model directory using directory system
-        model_dir = self.target.directory_manager.get_hf_model_dir(self.test_repo_id, self.test_revision)
+        model_dir = self.target.storage.get_hf_model_dir(self.test_repo_id, self.test_revision)
         model_dir.mkdir(parents=True, exist_ok=True)
 
         # Set initial metadata
@@ -81,13 +81,13 @@ class TestTargetHF(unittest.TestCase):
             "last_verified": "2025-07-27T00:00:00Z",
             "files": {}
         }
-        self.target.directory_manager.save_metadata(model_dir, initial_metadata)
+        self.target.storage.save_metadata(model_dir, initial_metadata)
 
         # Update model hash
         self.target.update_model_hash_for_repo(self.test_repo_id, self.test_revision, "new_hash")
 
         # Verify the data was updated
-        updated_metadata = self.target.directory_manager.load_metadata(model_dir)
+        updated_metadata = self.target.storage.load_metadata(model_dir)
         self.assertEqual(updated_metadata["model_hash"], "new_hash")
 
     @patch('model_sentinel.target.hf.HfApi')

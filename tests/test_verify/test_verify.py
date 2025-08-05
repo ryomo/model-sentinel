@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch, mock_open
 
 from model_sentinel.verify.verify import Verify
-from model_sentinel.directory.manager import DirectoryManager
+from model_sentinel.verify.storage import StorageManager
 
 
 class TestVerify(unittest.TestCase):
@@ -21,7 +21,7 @@ class TestVerify(unittest.TestCase):
         # Use temporary directory for testing to avoid affecting real files
         self.temp_dir = Path(tempfile.mkdtemp())
         # Override storage to use test directory
-        self.verify.storage = DirectoryManager(self.temp_dir / ".model-sentinel")
+        self.verify.storage = StorageManager(self.temp_dir / ".model-sentinel")
 
     def tearDown(self):
         """Tear down test fixtures after each test method."""
@@ -32,7 +32,7 @@ class TestVerify(unittest.TestCase):
     def test_init(self):
         """Test Verify class initialization."""
         verify_instance = Verify()
-        self.assertIsInstance(verify_instance.directory_manager, DirectoryManager)
+        self.assertIsInstance(verify_instance.storage, StorageManager)
 
     def test_storage_integration(self):
         """Test storage system integration."""
@@ -53,8 +53,8 @@ class TestVerify(unittest.TestCase):
             }
         }
 
-        self.verify.directory_manager.save_metadata(model_dir, test_metadata)
-        loaded_metadata = self.verify.directory_manager.load_metadata(model_dir)
+        self.verify.storage.save_metadata(model_dir, test_metadata)
+        loaded_metadata = self.verify.storage.load_metadata(model_dir)
         self.assertEqual(loaded_metadata["model_hash"], "test_hash")
 
     @patch('pydoc.pager')
@@ -85,17 +85,17 @@ class TestVerify(unittest.TestCase):
     def test_delete_hash_file_directory_exists(self):
         """Test deleting storage directory when it exists."""
         # Create storage directory
-        self.verify.directory_manager.ensure_directories()
-        self.assertTrue(self.verify.directory_manager.base_dir.exists())
+        self.verify.storage.ensure_directories()
+        self.assertTrue(self.verify.storage.base_dir.exists())
 
         result = self.verify.delete_hash_file()
 
         self.assertTrue(result)
-        self.assertFalse(self.verify.directory_manager.base_dir.exists())
+        self.assertFalse(self.verify.storage.base_dir.exists())
 
     def test_delete_hash_file_directory_not_exists(self):
         """Test deleting storage directory when it doesn't exist."""
-        self.assertFalse(self.verify.directory_manager.base_dir.exists())
+        self.assertFalse(self.verify.storage.base_dir.exists())
 
         result = self.verify.delete_hash_file()
 
@@ -111,7 +111,7 @@ class TestVerify(unittest.TestCase):
     def test_list_verified_hashes_with_data(self, mock_print):
         """Test listing verified hashes with data."""
         # Create test model data in storage system
-        test_model_dir = self.verify.directory_manager.base_dir / "hf" / "test" / "repo@main"
+        test_model_dir = self.verify.storage.base_dir / "hf" / "test" / "repo@main"
         test_model_dir.mkdir(parents=True)
 
         test_metadata = {
@@ -122,10 +122,10 @@ class TestVerify(unittest.TestCase):
                 "test2.py": {"hash": "hash2", "size": 200}
             }
         }
-        self.verify.directory_manager.save_metadata(test_model_dir, test_metadata)
+        self.verify.storage.save_metadata(test_model_dir, test_metadata)
 
         # Register model in registry
-        self.verify.directory_manager.register_model("hf", "test/repo@main")
+        self.verify.storage.register_model("hf", "test/repo@main")
 
         self.verify.list_verified_hashes()
 
@@ -280,7 +280,7 @@ class TestVerifyBusinessLogic(unittest.TestCase):
 
         self.assertEqual(result, "No changes to save.")
 
-    @patch('model_sentinel.verify.verify.datetime')
+    @patch("model_sentinel.verify.storage.datetime")
     def test_save_verification_results_hf_success(self, mock_datetime):
         """Test save_verification_results with HuggingFace model success case."""
         # Setup mock datetime
@@ -292,11 +292,11 @@ class TestVerifyBusinessLogic(unittest.TestCase):
 
         # Mock directory manager methods
         mock_model_dir = Mock()
-        verify.directory_manager.get_hf_model_dir = Mock(return_value=mock_model_dir)
-        verify.directory_manager.load_metadata = Mock(return_value={"files": {}})
-        verify.directory_manager.save_metadata = Mock()
-        verify.directory_manager.save_file_content = Mock()
-        verify.directory_manager.register_model = Mock()
+        verify.storage.get_hf_model_dir = Mock(return_value=mock_model_dir)
+        verify.storage.load_metadata = Mock(return_value={"files": {}})
+        verify.storage.save_metadata = Mock()
+        verify.storage.save_file_content = Mock()
+        verify.storage.register_model = Mock()
         verify.update_model_hash = Mock()
         verify.get_model_key_from_result = Mock(return_value="hf/test/model@main")
 
@@ -317,16 +317,16 @@ class TestVerifyBusinessLogic(unittest.TestCase):
 
         # Assertions
         verify.get_model_key_from_result.assert_called_once_with(verification_result)
-        verify.directory_manager.get_hf_model_dir.assert_called_once_with("test/model", "main")
+        verify.storage.get_hf_model_dir.assert_called_once_with("test/model", "main")
         verify.update_model_hash.assert_called_once_with(mock_model_dir, "abc123")
-        verify.directory_manager.save_file_content.assert_called_once_with(
+        verify.storage.save_file_content.assert_called_once_with(
             mock_model_dir, "modeling.py", "# Test content"
         )
-        verify.directory_manager.register_model.assert_called_once_with("hf", "test/model@main")
+        verify.storage.register_model.assert_called_once_with("hf", "test/model@main")
 
         self.assertEqual(result, "✅ Verification completed! 1 files approved and saved.")
 
-    @patch('model_sentinel.verify.verify.datetime')
+    @patch("model_sentinel.verify.storage.datetime")
     def test_save_verification_results_local_success(self, mock_datetime):
         """Test save_verification_results with local model success case."""
         # Setup mock datetime
@@ -338,11 +338,11 @@ class TestVerifyBusinessLogic(unittest.TestCase):
 
         # Mock directory manager methods
         mock_model_dir = Mock()
-        verify.directory_manager.get_local_model_dir = Mock(return_value=mock_model_dir)
-        verify.directory_manager.load_metadata = Mock(return_value={"files": {}})
-        verify.directory_manager.save_metadata = Mock()
-        verify.directory_manager.save_file_content = Mock()
-        verify.directory_manager.register_model = Mock()
+        verify.storage.get_local_model_dir = Mock(return_value=mock_model_dir)
+        verify.storage.load_metadata = Mock(return_value={"files": {}})
+        verify.storage.save_metadata = Mock()
+        verify.storage.save_file_content = Mock()
+        verify.storage.register_model = Mock()
         verify.update_model_hash = Mock()
         verify.get_model_key_from_result = Mock(return_value="local/test_model_hash")
 
@@ -362,12 +362,12 @@ class TestVerifyBusinessLogic(unittest.TestCase):
 
         # Assertions
         verify.get_model_key_from_result.assert_called_once_with(verification_result)
-        verify.directory_manager.get_local_model_dir.assert_called_once_with(Path("/path/to/model"))
+        verify.storage.get_local_model_dir.assert_called_once_with(Path("/path/to/model"))
         verify.update_model_hash.assert_called_once_with(mock_model_dir, "xyz999")
-        verify.directory_manager.save_file_content.assert_called_once_with(
+        verify.storage.save_file_content.assert_called_once_with(
             mock_model_dir, "script.py", "# Script content"
         )
-        verify.directory_manager.register_model.assert_called_once_with("local", "test_model_hash", original_path="/path/to/model")
+        verify.storage.register_model.assert_called_once_with("local", "test_model_hash", original_path="/path/to/model")
 
         self.assertEqual(result, "✅ Verification completed! 1 files approved and saved.")
 
@@ -390,7 +390,7 @@ class TestVerifyBusinessLogic(unittest.TestCase):
         self.assertTrue(result.startswith("❌ Error saving verification results:"))
         self.assertIn("Mock error", result)
 
-    @patch('model_sentinel.verify.verify.datetime')
+    @patch("model_sentinel.verify.storage.datetime")
     def test_update_approved_files_directory(self, mock_datetime):
         """Test _update_approved_files_directory function."""
         # Setup mock datetime
@@ -407,9 +407,9 @@ class TestVerifyBusinessLogic(unittest.TestCase):
             "last_verified": "2025-08-04T12:00:00Z",
             "files": {}
         }
-        verify.directory_manager.load_metadata = Mock(return_value=initial_metadata)
-        verify.directory_manager.save_metadata = Mock()
-        verify.directory_manager.save_file_content = Mock()
+        verify.storage.load_metadata = Mock(return_value=initial_metadata)
+        verify.storage.save_metadata = Mock()
+        verify.storage.save_file_content = Mock()
 
         verification_result = {
             "files_info": [
@@ -436,16 +436,16 @@ class TestVerifyBusinessLogic(unittest.TestCase):
         self.assertEqual(result, 1)
 
         # Check file content was saved
-        verify.directory_manager.save_file_content.assert_called_once_with(
+        verify.storage.save_file_content.assert_called_once_with(
             mock_model_dir, "approved.py", "# Approved content"
         )
 
         # Check metadata was loaded and saved
-        verify.directory_manager.load_metadata.assert_called_once_with(mock_model_dir)
-        verify.directory_manager.save_metadata.assert_called_once()
+        verify.storage.load_metadata.assert_called_once_with(mock_model_dir)
+        verify.storage.save_metadata.assert_called_once()
 
         # Check metadata structure
-        call_args, _ = verify.directory_manager.save_metadata.call_args
+        call_args, _ = verify.storage.save_metadata.call_args
         saved_metadata = call_args[1]  # Second argument is the metadata
         expected_metadata = {
             "model_hash": "old_hash",

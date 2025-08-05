@@ -2,7 +2,7 @@ import hashlib
 from pathlib import Path
 
 from model_sentinel.verify.verify import Verify
-from model_sentinel.directory.manager import DirectoryManager
+from model_sentinel.verify.storage import StorageManager
 
 # Constants
 VERIFICATION_FAILED_MESSAGE = "Model verification failed. Exiting for security reasons."
@@ -15,7 +15,7 @@ class TargetBase:
 
     def __init__(self):
         self.verify = Verify()
-        self.directory_manager = DirectoryManager()
+        self.storage = StorageManager()
 
     def _calculate_file_hash(self, file_path: Path | str) -> str:
         """
@@ -103,7 +103,7 @@ class TargetBase:
             bool: True if all files verified successfully
         """
         # Ensure storage directories exist
-        self.directory_manager.ensure_directories()
+        self.storage.ensure_directories()
 
         all_verified = True
 
@@ -139,19 +139,19 @@ class TargetBase:
         if model_type == "local":
             if model_path:
                 # Generate directory name and create if needed
-                model_dir = self.directory_manager.get_local_model_dir(model_path)
+                model_dir = self.storage.get_local_model_dir(model_path)
                 # Save original path
-                self.directory_manager.save_original_path(model_dir, str(model_path))
+                self.storage.save_original_path(model_dir, str(model_path))
                 return model_dir
             else:
                 # Use existing directory name
-                return self.directory_manager.local_dir / model_id
+                return self.storage.local_dir / model_id
         elif model_type == "hf":
             if '@' in model_id:
                 repo_id, revision = model_id.rsplit('@', 1)
             else:
                 repo_id, revision = model_id, 'main'
-            return self.directory_manager.get_hf_model_dir(repo_id, revision)
+            return self.storage.get_hf_model_dir(repo_id, revision)
         else:
             raise ValueError(f"Unknown model type: {model_type}")
 
@@ -166,7 +166,7 @@ class TargetBase:
         Returns:
             bool: True if hash changed or is new, False if unchanged
         """
-        metadata = self.directory_manager.load_metadata(model_dir)
+        metadata = self.storage.load_metadata(model_dir)
         previous_hash = metadata.get("model_hash")
 
         if previous_hash == current_hash:
@@ -191,7 +191,7 @@ class TargetBase:
         kwargs = {}
         if original_path:
             kwargs["original_path"] = original_path
-        self.directory_manager.register_model(model_type, model_id, **kwargs)
+        self.storage.register_model(model_type, model_id, **kwargs)
 
     def handle_gui_verification(self, repo_id: str = None, revision: str = None, model_dir: str = None) -> bool:
         """Handle GUI-based verification."""
