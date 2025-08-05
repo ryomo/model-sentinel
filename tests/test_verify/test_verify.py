@@ -57,44 +57,30 @@ class TestVerify(unittest.TestCase):
         loaded_metadata = self.verify.directory_manager.load_metadata(model_dir)
         self.assertEqual(loaded_metadata["model_hash"], "test_hash")
 
-    @patch('builtins.input', return_value='y')
     @patch('pydoc.pager')
-    def test_prompt_user_verification_yes(self, mock_pager, mock_input):
-        """Test user verification prompt with 'yes' response."""
-        result = self.verify.prompt_user_verification("test_file.py", "test content")
-        self.assertTrue(result)
-        mock_pager.assert_called_once()
+    def test_verify_file_user_responses(self, mock_pager):
+        """Test verify_file with various user responses."""
+        test_cases = [
+            ('y', True, "single 'y' confirmation"),
+            ('yes', True, "full 'yes' confirmation"),
+            ('n', False, "single 'n' rejection"),
+            ('no', False, "full 'no' rejection"),
+        ]
 
-    @patch('builtins.input', return_value='n')
-    @patch('pydoc.pager')
-    def test_prompt_user_verification_no(self, mock_pager, mock_input):
-        """Test user verification prompt with 'no' response."""
-        result = self.verify.prompt_user_verification("test_file.py", "test content")
-        self.assertFalse(result)
-        mock_pager.assert_called_once()
-
-    @patch('builtins.input', return_value='yes')
-    @patch('pydoc.pager')
-    def test_prompt_user_verification_yes_full(self, mock_pager, mock_input):
-        """Test user verification prompt with full 'yes' response."""
-        result = self.verify.prompt_user_verification("test_file.py", "test content")
-        self.assertTrue(result)
-
-    def test_verify_file_user_confirms(self):
-        """Test verify_file when user confirms the file."""
         model_dir = self.temp_dir / "test_model"
 
-        with patch.object(self.verify, 'prompt_user_verification', return_value=True):
-            result = self.verify.verify_file("test.py", "new_hash", "content", model_dir)
-            self.assertTrue(result)
+        for user_input, expected_result, description in test_cases:
+            with self.subTest(input=user_input, expected=expected_result, desc=description):
+                with patch('builtins.input', return_value=user_input):
+                    result = self.verify.verify_file("test_file.py", "hash123", "test content", model_dir)
 
-    def test_verify_file_user_rejects(self):
-        """Test verify_file when user rejects the file."""
-        model_dir = self.temp_dir / "test_model"
+                    if expected_result:
+                        self.assertTrue(result, f"Expected True for {description}")
+                    else:
+                        self.assertFalse(result, f"Expected False for {description}")
 
-        with patch.object(self.verify, 'prompt_user_verification', return_value=False):
-            result = self.verify.verify_file("test.py", "new_hash", "content", model_dir)
-            self.assertFalse(result)
+        # Verify pager was called for each test case
+        self.assertEqual(mock_pager.call_count, len(test_cases))
 
     def test_delete_hash_file_directory_exists(self):
         """Test deleting storage directory when it exists."""

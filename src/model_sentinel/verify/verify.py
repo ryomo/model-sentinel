@@ -1,7 +1,7 @@
-from pathlib import Path
 import pydoc
 from datetime import datetime
-from typing import Dict, Any, Optional
+from pathlib import Path
+from typing import Any
 
 from model_sentinel.directory.manager import DirectoryManager
 
@@ -13,8 +13,33 @@ class Verify:
         # Directory system
         self.directory_manager = DirectoryManager()
 
-    def verify_file(self, filename: str, current_hash: str, content: str,
-                   model_dir: Path) -> bool:
+    def _update_file_metadata(
+        self, model_dir: Path, filename: str, file_hash: str, content: str
+    ) -> None:
+        """Update file content and metadata.
+
+        Args:
+            model_dir: Model directory
+            filename: Name of the file
+            file_hash: File hash
+            content: File content
+        """
+        # Save file content
+        self.directory_manager.save_file_content(model_dir, filename, content)
+
+        # Update metadata
+        metadata = self.directory_manager.load_metadata(model_dir)
+        metadata["files"][filename] = {
+            "hash": file_hash,
+            "size": len(content.encode("utf-8")),
+            "verified_at": datetime.now().isoformat(),
+        }
+        metadata["last_verified"] = datetime.now().isoformat()
+        self.directory_manager.save_metadata(model_dir, metadata)
+
+    def verify_file(
+        self, filename: str, current_hash: str, content: str, model_dir: Path
+    ) -> bool:
         """Verify file content and update storage if confirmed.
 
         Args:
@@ -26,20 +51,22 @@ class Verify:
         Returns:
             True if file is verified and storage updated, False otherwise.
         """
-        if self.prompt_user_verification(filename, content):
-            # Save file content
-            self.directory_manager.save_file_content(model_dir, filename, content)
 
-            # Update metadata
-            metadata = self.directory_manager.load_metadata(model_dir)
-            metadata["files"][filename] = {
-                "hash": current_hash,
-                "size": len(content.encode('utf-8')),
-                "verified_at": datetime.now().isoformat()
-            }
-            metadata["last_verified"] = datetime.now().isoformat()
-            self.directory_manager.save_metadata(model_dir, metadata)
+        def prompt_user_verification(item_name, content):
+            """Prompt user for verification of changes."""
+            pydoc.pager(
+                f"{item_name} has been updated.\n"
+                f"--- Content of {item_name} ---\n\n"
+                + content
+                + "\n\n--- End of content ---\n"
+            )
 
+            message = f"Do you trust {item_name}? (y/N): "
+            response = input(message)
+            return response.lower() in ["y", "yes"]
+
+        if prompt_user_verification(filename, content):
+            self._update_file_metadata(model_dir, filename, current_hash, content)
             print("Trust confirmed. File content and hash updated.")
             return True
         else:
@@ -59,7 +86,9 @@ class Verify:
         self.directory_manager.save_metadata(model_dir, metadata)
         print(f"Model hash updated to: {new_hash}")
 
-    def check_file_changed(self, model_dir: Path, filename: str, current_hash: str) -> bool:
+    def check_file_changed(
+        self, model_dir: Path, filename: str, current_hash: str
+    ) -> bool:
         """Check if file hash has changed in directory system.
 
         Args:
@@ -85,19 +114,6 @@ class Verify:
         print(f"Changes detected in {filename}!")
         return True
 
-    def prompt_user_verification(self, item_name, content):
-        """Prompt user for verification of changes."""
-        pydoc.pager(
-            f"{item_name} has been updated.\n"
-            f"--- Content of {item_name} ---\n\n"
-            + content
-            + "\n\n--- End of content ---\n"
-        )
-
-        message = f"Do you trust {item_name}? (y/N): "
-        response = input(message)
-        return response.lower() in ["y", "yes"]
-
     def list_verified_hashes(self):
         """Display all verified models and hashes in a human-readable format."""
         # Load from directory system
@@ -113,37 +129,62 @@ class Verify:
             self._display_model_info(model_key, model_info)
             print("-" * 50)
 
-    def _display_model_info(self, model_key: str, model_info: Dict[str, Any]) -> None:
+    def _display_model_info(self, model_key: str, model_info: dict[str, Any]) -> None:
         """Display information for a single model."""
         print(f"\nModel: {model_key}")
         print(f"Type: {model_info.get('type', 'unknown')}")
         print(f"Last Verified: {model_info.get('last_verified', 'unknown')}")
         print(f"Status: {model_info.get('status', 'unknown')}")
 
-        if model_info.get('original_path'):
+        if model_info.get("original_path"):
             print(f"Original Path: {model_info['original_path']}")
 
         # Get model directory
-        model_dir = self._get_model_dir_from_info(model_key, model_info)
+        model_dir = self._resolve_model_dir(model_key=model_key, model_info=model_info)
         if model_dir and model_dir.exists():
             self._display_file_info(model_dir)
         else:
             print("  Files: Metadata not found")
 
-    def _get_model_dir_from_info(self, model_key: str, model_info: Dict[str, Any]) -> Optional[Path]:
-        """Get model directory path from model info."""
-        model_type = model_info.get('type')
+    def _resolve_model_dir(
+        self,
+        verification_result: dict = None,
+        model_key: str = None,
+        model_info: dict = None,
+    ) -> Path | None:
+        """Resolve model directory from verification result or model info.
 
-        if model_type == 'local':
-            model_id = model_key.split('/', 1)[1]
-            return self.directory_manager.local_dir / model_id
-        elif model_type == 'hf':
-            model_path = model_key.split('/', 1)[1]
-            if '@' in model_path:
-                repo_parts, revision = model_path.rsplit('@', 1)
+        Args:
+            verification_result: Verification result dictionary
+            model_key: Model key (for registry lookup)
+            model_info: Model info dictionary
+
+        Returns:
+            Model directory path or None if not found
+        """
+        if verification_result:
+            # From verification result
+            if verification_result.get("target_type") == "local":
+                model_path = Path(verification_result["model_dir"])
+                return self.directory_manager.get_local_model_dir(model_path)
             else:
-                repo_parts, revision = model_path, 'main'
-            return self.directory_manager.get_hf_model_dir(repo_parts, revision)
+                repo_id = verification_result["repo_id"]
+                revision = verification_result.get("revision", "main")
+                return self.directory_manager.get_hf_model_dir(repo_id, revision)
+
+        elif model_key and model_info:
+            # From model registry info
+            model_type = model_info.get("type")
+            if model_type == "local":
+                model_id = model_key.split("/", 1)[1]
+                return self.directory_manager.local_dir / model_id
+            elif model_type == "hf":
+                model_path = model_key.split("/", 1)[1]
+                if "@" in model_path:
+                    repo_parts, revision = model_path.rsplit("@", 1)
+                else:
+                    repo_parts, revision = model_path, "main"
+                return self.directory_manager.get_hf_model_dir(repo_parts, revision)
 
         return None
 
@@ -167,6 +208,7 @@ class Verify:
         try:
             if self.directory_manager.base_dir.exists():
                 import shutil
+
                 shutil.rmtree(self.directory_manager.base_dir)
                 print("Storage directory deleted successfully.")
                 return True
@@ -177,38 +219,55 @@ class Verify:
             print(f"Error deleting directory: {e}")
             return False
 
-    def verify_hf_model(self, repo_id: str, revision: str = "main") -> dict:
-        """Verify HF model and return result."""
-        from model_sentinel.target.hf import TargetHF
+    def _verify_model_template(
+        self, target, detect_args: tuple, verify_args: tuple, display_info: list[str]
+    ) -> dict:
+        """Template method for model verification.
 
-        target = TargetHF()
+        Args:
+            target: Target instance (HF or Local)
+            detect_args: Arguments for detect_model_changes (as tuple)
+            verify_args: Arguments for get_files_for_verification (as tuple)
+            display_info: Information to display in result
 
-        new_model_hash = target.detect_model_changes(repo_id, revision)
+        Returns:
+            Verification result dictionary
+        """
+        new_model_hash = target.detect_model_changes(*detect_args)
 
         result = {
-            "target_type": "hf",
-            "repo_id": repo_id,
-            "revision": revision,
             "status": "success",
             "model_hash_changed": bool(new_model_hash),
             "new_model_hash": new_model_hash,
             "files_verified": False,
             "message": "",
             "files_info": [],
-            "display_info": [
-                f"**Repository:** {repo_id}",
-                f"**Revision:** {revision}"
-            ]
+            "display_info": display_info,
         }
 
         if not new_model_hash:
             result["message"] = "No changes detected in the model hash."
             result["files_verified"] = True
         else:
-            files_info = target.get_files_for_verification(repo_id, revision)
+            files_info = target.get_files_for_verification(*verify_args)
             result["files_info"] = files_info
             result["message"] = f"Found {len(files_info)} files that need verification."
 
+        return result
+
+    def verify_hf_model(self, repo_id: str, revision: str = "main") -> dict:
+        """Verify HF model and return result."""
+        from model_sentinel.target.hf import TargetHF
+
+        target = TargetHF()
+        detect_args = (repo_id, revision)
+        verify_args = (repo_id, revision)
+        display_info = [f"**Repository:** {repo_id}", f"**Revision:** {revision}"]
+
+        result = self._verify_model_template(
+            target, detect_args, verify_args, display_info
+        )
+        result.update({"target_type": "hf", "repo_id": repo_id, "revision": revision})
         return result
 
     def verify_local_model(self, model_dir: str) -> dict:
@@ -220,30 +279,14 @@ class Verify:
             raise FileNotFoundError(f"Model directory {model_dir} does not exist.")
 
         target = TargetLocal()
-        new_model_hash = target.detect_model_changes(model_path)
+        detect_args = (model_path,)
+        verify_args = (model_path,)
+        display_info = [f"**Model Directory:** {model_path}"]
 
-        result = {
-            "target_type": "local",
-            "model_dir": str(model_path),
-            "status": "success",
-            "model_hash_changed": bool(new_model_hash),
-            "new_model_hash": new_model_hash,
-            "files_verified": False,
-            "message": "",
-            "files_info": [],
-            "display_info": [
-                f"**Model Directory:** {model_path}"
-            ]
-        }
-
-        if not new_model_hash:
-            result["message"] = "No changes detected in the model directory."
-            result["files_verified"] = True
-        else:
-            files_info = target.get_files_for_verification(model_path)
-            result["files_info"] = files_info
-            result["message"] = f"Found {len(files_info)} files that need verification."
-
+        result = self._verify_model_template(
+            target, detect_args, verify_args, display_info
+        )
+        result.update({"target_type": "local", "model_dir": str(model_path)})
         return result
 
     def get_model_key_from_result(self, verification_result: dict) -> str:
@@ -289,19 +332,11 @@ class Verify:
             print(f"🔑 Model key: {model_key}")
 
             # Get model directory
-            if verification_result.get("target_type") == "local":
-                model_path = Path(verification_result["model_dir"])
-                model_dir = self.directory_manager.get_local_model_dir(model_path)
-            else:
-                repo_id = verification_result["repo_id"]
-                revision = verification_result.get("revision", "main")
-                model_dir = self.directory_manager.get_hf_model_dir(repo_id, revision)
+            model_dir = self._resolve_model_dir(verification_result=verification_result)
 
             # Update model hash if changed
             if verification_result.get("new_model_hash"):
-                self.update_model_hash(
-                    model_dir, verification_result["new_model_hash"]
-                )
+                self.update_model_hash(model_dir, verification_result["new_model_hash"])
                 print(
                     f"🔄 Updated model hash: {verification_result['new_model_hash'][:16]}..."
                 )
@@ -331,7 +366,7 @@ class Verify:
     def _update_approved_files_directory(
         self,
         model_dir: Path,
-        verification_result: Dict[str, Any],
+        verification_result: dict[str, Any],
         approved_files: list[str],
     ) -> int:
         """Update file hashes for approved files using directory system."""
@@ -344,19 +379,7 @@ class Verify:
             content = file_info.get("content", "")
 
             if filename in approved_files and file_hash:
-                # Save file content and update metadata
-                self.directory_manager.save_file_content(model_dir, filename, content)
-
-                # Update metadata
-                metadata = self.directory_manager.load_metadata(model_dir)
-                metadata["files"][filename] = {
-                    "hash": file_hash,
-                    "size": len(content.encode("utf-8")),
-                    "verified_at": datetime.now().isoformat(),
-                }
-                metadata["last_verified"] = datetime.now().isoformat()
-                self.directory_manager.save_metadata(model_dir, metadata)
-
+                self._update_file_metadata(model_dir, filename, file_hash, content)
                 approved_count += 1
                 print(f"✅ Approved file: {filename} - {file_hash[:16]}...")
 
