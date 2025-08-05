@@ -1,6 +1,6 @@
 [project]
 name = "model-sentinel"
-version = "0.2.0"
+version = "0.3.0"
 description = "A security verification tool for AI model scripts - Detects and verifies changes in Python files of AI models"
 readme = "README.md"
 license = { text = "MIT" }

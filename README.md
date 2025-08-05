@@ -176,6 +176,7 @@ This project uses GitHub Actions to automatically publish to PyPI when a new ver
 3. Commit and push your changes:
 
     ```sh
+    git add -u
     git commit -m "chore: bump version to v1.2.3"
     git push
     ```
