@@ -3,5 +3,14 @@
         {
             "text": "Use concise conventional commit messages with a type prefix (e.g. fix:, feat:, docs:, chore:, refactor:, or test:)."
         }
-    ]
+    ],
+    "python.testing.unittestArgs": [
+        "-v",
+        "-s",
+        "./tests",
+        "-p",
+        "test_*.py"
+    ],
+    "python.testing.unittestEnabled": true,
+    "python.testing.pytestEnabled": false
 }
