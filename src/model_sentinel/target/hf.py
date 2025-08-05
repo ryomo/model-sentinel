@@ -166,28 +166,25 @@ def verify_hf_model(repo_id, revision=None, gui=False, exit_on_reject=True) -> b
 
     # If no changes detected, model is already verified
     if not new_model_hash:
-        if gui:
-            print("No changes detected in the model hash. Model is already verified.")
-        else:
-            print("No changes detected in the model hash. Skipping file checks.")
+        print("No changes detected in the model hash. Model is already verified.")
         return True
 
     if gui:
-        # Launch GUI for verification
-        try:
-            from model_sentinel.gui.main import launch_verification_gui
+        result = target.handle_gui_verification(repo_id=repo_id, revision=revision)
+    else:
+        result = _handle_cli_verification(target, repo_id, revision, new_model_hash)
 
-            print("Changes detected. Launching GUI for verification...")
-            return launch_verification_gui(repo_id=repo_id, revision=revision)
-        except ImportError:
-            print("GUI functionality requires gradio. Install with:")
-            print("pip install 'model-sentinel[gui]'")
-            if exit_on_reject:
-                print(VERIFICATION_FAILED_MESSAGE)
-                exit(1)
-            return False
+    if not result and exit_on_reject:
+        print(VERIFICATION_FAILED_MESSAGE)
+        exit(1)
 
-    # CLI mode: original behavior
+    return result
+
+
+def _handle_cli_verification(
+    target: TargetHF, repo_id: str, revision: str, new_model_hash: str
+) -> bool:
+    """Handle CLI-based verification."""
     print("\n" + "=" * 50)
     print("Checking remote Python files...")
     verified_all = target.verify_remote_files(repo_id, revision=revision)
@@ -201,9 +198,6 @@ def verify_hf_model(repo_id, revision=None, gui=False, exit_on_reject=True) -> b
         target.register_model_in_registry("hf", model_key)
 
         print("Verified model hash updated.")
-        return verified_all
+        return True
     else:
-        if exit_on_reject:
-            print(VERIFICATION_FAILED_MESSAGE)
-            exit(1)
-        return verified_all
+        return False

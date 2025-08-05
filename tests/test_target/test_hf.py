@@ -281,13 +281,66 @@ class TestVerifyHFModel(unittest.TestCase):
         mock_target = Mock()
         mock_target_class.return_value = mock_target
         mock_target.detect_model_changes.return_value = "new_hash"
+        mock_target.handle_gui_verification.return_value = False
 
-        # Mock ImportError for GUI using sys.modules
         with patch('builtins.print'):
-            with patch.dict('sys.modules', {'model_sentinel.gui.main': None}):
+            result = verify_hf_model(self.test_repo_id, self.test_revision, gui=True, exit_on_reject=False)
+
+        mock_target.handle_gui_verification.assert_called_once_with(repo_id=self.test_repo_id, revision=self.test_revision)
+        self.assertFalse(result)
+
+    @patch('model_sentinel.target.hf.TargetHF')
+    def test_verify_hf_model_gui_closed_with_exit_on_reject_true(self, mock_target_class):
+        """Test verify_hf_model GUI mode when GUI is closed with exit_on_reject=True."""
+        mock_target = Mock()
+        mock_target_class.return_value = mock_target
+        mock_target.detect_model_changes.return_value = "new_hash"
+        mock_target.handle_gui_verification.return_value = False
+
+        with patch('builtins.print'):
+            with patch('builtins.exit') as mock_exit:
+                result = verify_hf_model(self.test_repo_id, revision=self.test_revision, gui=True, exit_on_reject=True)
+
+        # Verify GUI handler was called
+        mock_target.handle_gui_verification.assert_called_once_with(repo_id=self.test_repo_id, revision=self.test_revision)
+
+        # exit() should be called when exit_on_reject=True and verification fails
+        mock_exit.assert_called_once_with(1)
+        self.assertFalse(result)
+
+    @patch('model_sentinel.target.hf.TargetHF')
+    def test_verify_hf_model_gui_closed_with_exit_on_reject_false(self, mock_target_class):
+        """Test verify_hf_model GUI mode when GUI is closed with exit_on_reject=False."""
+        mock_target = Mock()
+        mock_target_class.return_value = mock_target
+        mock_target.detect_model_changes.return_value = "new_hash"
+        mock_target.handle_gui_verification.return_value = False
+
+        with patch('builtins.print'):
+            with patch('builtins.exit') as mock_exit:
                 result = verify_hf_model(self.test_repo_id, self.test_revision, gui=True, exit_on_reject=False)
 
+        # Verify GUI handler was called
+        mock_target.handle_gui_verification.assert_called_once_with(repo_id=self.test_repo_id, revision=self.test_revision)
+
+        # exit() should NOT be called when exit_on_reject=False
+        mock_exit.assert_not_called()
         self.assertFalse(result)
+
+    @patch('model_sentinel.target.hf.TargetHF')
+    def test_verify_hf_model_gui_success(self, mock_target_class):
+        """Test verify_hf_model GUI mode with successful verification."""
+        mock_target = Mock()
+        mock_target_class.return_value = mock_target
+        mock_target.detect_model_changes.return_value = "new_hash"
+        mock_target.handle_gui_verification.return_value = True
+
+        with patch('builtins.print'):
+            result = verify_hf_model(self.test_repo_id, self.test_revision, gui=True, exit_on_reject=False)
+
+        # Verify GUI handler was called
+        mock_target.handle_gui_verification.assert_called_once_with(repo_id=self.test_repo_id, revision=self.test_revision)
+        self.assertTrue(result)
 
 
 if __name__ == '__main__':

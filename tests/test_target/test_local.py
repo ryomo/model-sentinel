@@ -226,16 +226,16 @@ class TestVerifyLocalModel(unittest.TestCase):
         mock_target = Mock()
         mock_target_class.return_value = mock_target
         mock_target.detect_model_changes.return_value = "new_hash"
+        mock_target.handle_gui_verification.return_value = True
 
         with TemporaryDirectory() as temp_dir:
             temp_model_dir = Path(temp_dir)
 
-            with patch('model_sentinel.gui.main.launch_verification_gui', return_value=True) as mock_gui:
-                with patch('builtins.print'):
-                    result = verify_local_model(temp_model_dir, gui=True)
+            with patch('builtins.print'):
+                result = verify_local_model(temp_model_dir, gui=True)
 
         self.assertTrue(result)
-        mock_gui.assert_called_once_with(model_dir=str(temp_model_dir))
+        mock_target.handle_gui_verification.assert_called_once_with(model_dir=temp_model_dir)
 
     @patch('model_sentinel.target.local.TargetLocal')
     def test_verify_local_model_gui_import_error(self, mock_target_class):
@@ -243,14 +243,59 @@ class TestVerifyLocalModel(unittest.TestCase):
         mock_target = Mock()
         mock_target_class.return_value = mock_target
         mock_target.detect_model_changes.return_value = "new_hash"
+        mock_target.handle_gui_verification.return_value = False
 
         with TemporaryDirectory() as temp_dir:
             temp_model_dir = Path(temp_dir)
 
-            with patch('model_sentinel.gui.main.launch_verification_gui', side_effect=ImportError):
-                with patch('builtins.print'):
+            with patch('builtins.print'):
+                result = verify_local_model(temp_model_dir, gui=True, exit_on_reject=False)
+
+        mock_target.handle_gui_verification.assert_called_once_with(model_dir=temp_model_dir)
+        self.assertFalse(result)
+
+    @patch('model_sentinel.target.local.TargetLocal')
+    def test_verify_local_model_gui_closed_with_exit_on_reject_true(self, mock_target_class):
+        """Test verify_local_model GUI mode when GUI is closed with exit_on_reject=True."""
+        mock_target = Mock()
+        mock_target_class.return_value = mock_target
+        mock_target.detect_model_changes.return_value = "new_hash"
+        mock_target.handle_gui_verification.return_value = False
+
+        with TemporaryDirectory() as temp_dir:
+            temp_model_dir = Path(temp_dir)
+
+            with patch('builtins.print'):
+                with patch('builtins.exit') as mock_exit:
+                    result = verify_local_model(temp_model_dir, gui=True, exit_on_reject=True)
+
+        # Verify GUI handler was called
+        mock_target.handle_gui_verification.assert_called_once_with(model_dir=temp_model_dir)
+
+        # exit() should be called when exit_on_reject=True and verification fails
+        mock_exit.assert_called_once_with(1)
+        self.assertFalse(result)
+
+    @patch('model_sentinel.target.local.TargetLocal')
+    def test_verify_local_model_gui_closed_with_exit_on_reject_false(self, mock_target_class):
+        """Test verify_local_model GUI mode when GUI is closed with exit_on_reject=False."""
+        mock_target = Mock()
+        mock_target_class.return_value = mock_target
+        mock_target.detect_model_changes.return_value = "new_hash"
+        mock_target.handle_gui_verification.return_value = False
+
+        with TemporaryDirectory() as temp_dir:
+            temp_model_dir = Path(temp_dir)
+
+            with patch('builtins.print'):
+                with patch('builtins.exit') as mock_exit:
                     result = verify_local_model(temp_model_dir, gui=True, exit_on_reject=False)
 
+        # Verify GUI handler was called
+        mock_target.handle_gui_verification.assert_called_once_with(model_dir=temp_model_dir)
+
+        # exit() should NOT be called when exit_on_reject=False
+        mock_exit.assert_not_called()
         self.assertFalse(result)
 
     @patch('model_sentinel.target.local.TargetLocal')

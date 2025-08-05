@@ -118,58 +118,36 @@ def verify_local_model(model_dir: str | Path, gui=False, exit_on_reject=True) ->
 
     # Check if the model directory exists
     if not model_dir.exists():
-        return _handle_missing_directory(model_dir, exit_on_reject)
+        print(f"Model directory {model_dir} does not exist.")
+        if exit_on_reject:
+            print(VERIFICATION_FAILED_MESSAGE)
+            exit(1)
+        return False
 
     target = TargetLocal()
     new_model_hash = target.detect_model_changes(model_dir)
 
     # If no changes detected, model is already verified
     if not new_model_hash:
-        _print_no_changes_message(gui)
+        print("No changes detected in the model directory. Model is already verified.")
         return True
 
     # Handle verification based on mode
     if gui:
-        return _handle_gui_verification(model_dir, exit_on_reject)
+        result = target.handle_gui_verification(model_dir=model_dir)
     else:
-        return _handle_cli_verification(target, model_dir, new_model_hash, exit_on_reject)
+        result = _handle_cli_verification(target, model_dir, new_model_hash)
 
-
-def _handle_missing_directory(model_dir: Path, exit_on_reject: bool) -> bool:
-    """Handle case when model directory doesn't exist."""
-    error_msg = f"Model directory {model_dir} does not exist."
-    print(error_msg)
-    if exit_on_reject:
+    if not result and exit_on_reject:
         print(VERIFICATION_FAILED_MESSAGE)
         exit(1)
-    return False
+
+    return result
 
 
-def _print_no_changes_message(gui: bool) -> None:
-    """Print appropriate no changes message."""
-    if gui:
-        print("No changes detected in the model directory. Model is already verified.")
-    else:
-        print("No changes detected in the model directory.")
-
-
-def _handle_gui_verification(model_dir: Path, exit_on_reject: bool) -> bool:
-    """Handle GUI-based verification."""
-    try:
-        from model_sentinel.gui.main import launch_verification_gui
-
-        print("Changes detected. Launching GUI for verification...")
-        return launch_verification_gui(model_dir=str(model_dir))
-    except ImportError:
-        print("GUI functionality requires gradio. Install with:")
-        print("pip install 'model-sentinel[gui]'")
-        if exit_on_reject:
-            print(VERIFICATION_FAILED_MESSAGE)
-            exit(1)
-        return False
-
-
-def _handle_cli_verification(target: TargetLocal, model_dir: Path, new_model_hash: str, exit_on_reject: bool) -> bool:
+def _handle_cli_verification(
+    target: TargetLocal, model_dir: Path, new_model_hash: str
+) -> bool:
     """Handle CLI-based verification."""
     print("\n" + "=" * 50)
     print("Checking local Python files...")
@@ -183,15 +161,13 @@ def _handle_cli_verification(target: TargetLocal, model_dir: Path, new_model_has
         target.update_model_hash(model_dir_path, new_model_hash)
 
         # Register in global registry
-        target.register_model_in_registry("local", target.directory_manager.generate_local_model_dir_name(model_dir), str(model_dir))
+        target.register_model_in_registry(
+            "local",
+            target.directory_manager.generate_local_model_dir_name(model_dir),
+            str(model_dir),
+        )
 
         print("Verified model hash updated.")
         return True
     else:
-        if exit_on_reject:
-            print(VERIFICATION_FAILED_MESSAGE)
-            exit(1)
         return False
-
-
-
