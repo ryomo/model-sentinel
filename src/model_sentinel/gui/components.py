@@ -206,7 +206,7 @@ def create_final_verification_interface(
             model_dir = verify._resolve_model_dir(verification_result=verification_result)
             # Only write here when not all approved OR when no files approved; success path will call save_verification_results()
             if model_dir is not None and (len(approved_files) != total_files or total_files == 0):
-                verify._write_run_metadata(model_dir, session_files)
+                verify.save_run_metadata(model_dir, session_files)
         except Exception as e:
             # Do not break GUI on metadata write issues
             print(f"Warning: failed to write run metadata from GUI: {e}")

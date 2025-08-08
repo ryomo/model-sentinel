@@ -4,8 +4,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from model_sentinel.verify.metadata import compute_run_metadata
+from model_sentinel.verify.session import build_session_files
 from model_sentinel.verify.storage import StorageManager
-
 
 FILES_NONE_VERIFIED = "  Files: None verified"
 
@@ -284,61 +285,8 @@ class Verify:
             pass
         return "unknown", str(model_dir)
 
-    def _approved_map_from_existing(self, existing_files: Any) -> dict[str, dict[str, Any]]:
-        """Build approved file map from existing metadata files entry (legacy dict or new list)."""
-        approved_map: dict[str, dict[str, Any]] = {}
-        if isinstance(existing_files, dict):
-            for k, v in existing_files.items():
-                approved_map[k] = {
-                    "hash": v.get("hash"),
-                    "size": v.get("size"),
-                    "verified_at": v.get("verified_at"),
-                }
-        elif isinstance(existing_files, list):
-            for item in existing_files:
-                if item.get("status", "ok") == "ok":
-                    approved_map[item.get("path", "")] = {
-                        "hash": item.get("hash"),
-                        "size": item.get("size"),
-                        "verified_at": item.get("verified_at"),
-                    }
-        return approved_map
-
-    def _files_list_from_map(self, approved_map: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
-        """Convert approved file map to the new list-based files entry."""
-        files_list: list[dict[str, Any]] = []
-        for path in sorted(approved_map.keys()):
-            rec = approved_map[path]
-            files_list.append(
-                {
-                    "path": path,
-                    "size": rec.get("size"),
-                    "hash": rec.get("hash"),
-                    "status": "ok",
-                    "verified_at": rec.get("verified_at"),
-                }
-            )
-        return files_list
-
-    def _build_summary_and_overall(self, total: int, ok_count: int, ng_count: int) -> tuple[dict[str, int], str]:
-        """Build summary dict and overall status string."""
-        summary = {
-            "total": total,
-            "ok": ok_count,
-            "ng": ng_count,
-            "skipped": 0,
-            "unknown": 0,
-        }
-        if ng_count == 0:
-            overall = "ok"
-        elif ok_count == 0:
-            overall = "ng"
-        else:
-            overall = "mixed"
-        return summary, overall
-
-    def _write_run_metadata(self, model_dir: Path, session_files: list[dict[str, Any]]) -> None:
-        """Write metadata.json for this run, aggregating approved files and summary.
+    def save_run_metadata(self, model_dir: Path, session_files: list[dict[str, Any]]) -> None:
+        """Persist metadata.json for this verification run.
 
         session_files: list of {filename, hash, content, approved(bool)}
         """
@@ -359,51 +307,20 @@ class Verify:
                     return "unknown"
         # Load existing metadata (support old/new)
         existing = self.storage.load_metadata(model_dir)
-        existing_files = existing.get("files")
-
-        # Build mapping of last approved files
-        approved_map = self._approved_map_from_existing(existing_files)
-
-        # Merge current session approvals
-        ok_count = 0
-        ng_count = 0
-        total = len(session_files)
-        for sf in session_files:
-            if sf.get("approved"):
-                ok_count += 1
-                fname = sf["filename"]
-                content = sf.get("content", "")
-                approved_map[fname] = {
-                    "hash": sf["hash"],
-                    "size": len(content.encode("utf-8")),
-                    "verified_at": self.storage.get_current_timestamp(),
-                }
-            else:
-                ng_count += 1
-
-        # Convert to list for new schema
-        files_list = self._files_list_from_map(approved_map)
-
-        # Build summary and overall
-        summary, overall = self._build_summary_and_overall(total, ok_count, ng_count)
 
         t_type, t_id = self._determine_target_from_model_dir(model_dir)
-
-        new_meta = {
-            "schema_version": 1,
-            "run": {
-                "run_id": str(uuid.uuid4()),
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "tool_version": _resolve_tool_version(),
-                "target": {"type": t_type, "id": t_id},
-            },
-            # Keep legacy keys if present
-            "model_hash": existing.get("model_hash"),
-            "last_verified": existing.get("last_verified"),
-            "overall_status": overall,
-            "summary": summary,
-            "files": files_list,
-        }
+        new_meta = compute_run_metadata(
+            existing,
+            session_files,
+            target_type=t_type,
+            target_id=t_id,
+            tool_version=_resolve_tool_version(),
+            timestamp_iso=datetime.now(timezone.utc).isoformat(),
+            current_timestamp=self.storage.get_current_timestamp(),
+        )
+        # Fill run_id at the boundary
+        if isinstance(new_meta.get("run"), dict):
+            new_meta["run"]["run_id"] = str(uuid.uuid4())
 
         self.storage.save_metadata(model_dir, new_meta)
 
@@ -492,19 +409,8 @@ class Verify:
                 model_dir, verification_result, approved_files
             )
 
-            # Also write metadata report for this session
-            session = []
-            for file_info in verification_result.get("files_info", []):
-                fname = file_info.get("filename", "")
-                session.append(
-                    {
-                        "filename": fname,
-                        "hash": file_info.get("hash", ""),
-                        "content": file_info.get("content", ""),
-                        "approved": fname in approved_files,
-                    }
-                )
-            self._write_run_metadata(model_dir, session)
+            # Also write metadata report for this session using same model_dir
+            self.write_session_metadata(verification_result, approved_files, model_dir=model_dir)
 
             # Register model in registry
             model_type, model_id = model_key.split("/", 1)
@@ -544,3 +450,19 @@ class Verify:
                 print(f"✅ Approved file: {filename} - {file_hash[:16]}...")
 
         return approved_count
+
+    def write_session_metadata(
+        self,
+        verification_result: dict[str, Any],
+        approved_files: list[str],
+        *,
+        model_dir: Path | None = None,
+    ) -> None:
+        if model_dir is None:
+            model_dir = self._resolve_model_dir(verification_result=verification_result)
+            if model_dir is None:
+                return
+        session = build_session_files(
+            verification_result.get("files_info", []), approved_files
+        )
+        self.save_run_metadata(model_dir, session)

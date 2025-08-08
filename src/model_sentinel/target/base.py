@@ -4,7 +4,6 @@ from pathlib import Path
 from model_sentinel.verify.verify import Verify
 from model_sentinel.verify.storage import StorageManager
 
-# Constants
 VERIFICATION_FAILED_MESSAGE = "Model verification failed. Exiting for security reasons."
 
 
@@ -133,7 +132,7 @@ class TargetBase:
 
         # Always write run metadata (even if not all verified)
         try:
-            self.verify._write_run_metadata(model_dir, session)
+            self.verify.save_run_metadata(model_dir, session)
         except Exception as e:
             # Do not fail verification due to metadata write
             print(f"Warning: failed to write run metadata: {e}")
