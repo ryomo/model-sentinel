@@ -1,6 +1,54 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, TypedDict, Literal, Iterable
+
+# ------------------
+# Type Definitions
+# ------------------
+
+class SessionFile(TypedDict, total=False):
+    filename: str
+    hash: str
+    content: str
+    approved: bool
+
+
+class FileRecord(TypedDict, total=False):
+    path: str
+    size: int | None
+    hash: str | None
+    status: Literal["ok", "ng", "skipped", "unknown"]
+    verified_at: str | None
+
+
+class RunInfoTarget(TypedDict, total=False):
+    type: str
+    id: str
+
+
+class RunInfo(TypedDict, total=False):
+    run_id: str | None
+    timestamp: str
+    tool_version: str
+    target: RunInfoTarget
+
+
+class Summary(TypedDict, total=False):
+    total: int
+    ok: int
+    ng: int
+    skipped: int
+    unknown: int
+
+
+class MetadataPayload(TypedDict, total=False):
+    schema_version: int
+    run: RunInfo
+    model_hash: str | None
+    last_verified: str | None
+    overall_status: str
+    summary: Summary
+    files: list[FileRecord]
 
 
 def approved_map_from_existing(existing_files: Any) -> dict[str, dict[str, Any]]:
@@ -27,7 +75,7 @@ def approved_map_from_existing(existing_files: Any) -> dict[str, dict[str, Any]]
     return approved_map
 
 
-def files_list_from_map(approved_map: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+def files_list_from_map(approved_map: dict[str, dict[str, Any]]) -> list[FileRecord]:
     """Convert approved file map to the new list-based files entry.
 
     Pure function: no I/O.
@@ -47,7 +95,7 @@ def files_list_from_map(approved_map: dict[str, dict[str, Any]]) -> list[dict[st
     return files_list
 
 
-def build_summary_and_overall(total: int, ok_count: int, ng_count: int) -> tuple[dict[str, int], str]:
+def build_summary_and_overall(total: int, ok_count: int, ng_count: int) -> tuple[Summary, str]:
     """Build summary dict and overall status string.
 
     Pure function: no I/O.
@@ -70,14 +118,14 @@ def build_summary_and_overall(total: int, ok_count: int, ng_count: int) -> tuple
 
 def compute_run_metadata(
     existing_metadata: dict[str, Any],
-    session_files: list[dict[str, Any]],
+    session_files: list[SessionFile],
     *,
     target_type: str,
     target_id: str,
     tool_version: str,
     timestamp_iso: str,
     current_timestamp: str,
-) -> dict[str, Any]:
+) -> MetadataPayload:
     """Compute new metadata.json content from inputs.
 
     Pure function: receives timestamps and produces a dict. No I/O.
@@ -105,7 +153,7 @@ def compute_run_metadata(
     files_list = files_list_from_map(approved_map)
     summary, overall = build_summary_and_overall(total, ok_count, ng_count)
 
-    new_meta = {
+    new_meta: MetadataPayload = {
         "schema_version": 1,
         "run": {
             "run_id": None,  # Optional: can be filled by caller if needed
@@ -121,3 +169,34 @@ def compute_run_metadata(
     }
 
     return new_meta
+
+
+# ------------------
+# Validation Helpers (lightweight)
+# ------------------
+from model_sentinel.verify.errors import ValidationError
+
+def validate_session_files(session_files: Iterable[SessionFile]) -> None:
+    seen: set[str] = set()
+    for idx, sf in enumerate(session_files):
+        fname = sf.get("filename")
+        if not fname:
+            raise ValidationError(f"Session file at index {idx} missing 'filename'.")
+        if fname in seen:
+            raise ValidationError(f"Duplicate session filename detected: {fname}")
+        seen.add(fname)
+        if "approved" in sf and not isinstance(sf["approved"], bool):
+            raise ValidationError(f"'approved' must be bool for {fname}")
+
+def validate_metadata_payload(meta: MetadataPayload) -> None:
+    if meta.get("schema_version") != 1:
+        raise ValidationError("Unsupported schema_version (expected 1).")
+    run = meta.get("run") or {}
+    if not run.get("timestamp"):
+        raise ValidationError("Run timestamp missing.")
+    if not isinstance(meta.get("files"), list):
+        raise ValidationError("'files' must be a list.")
+    summary = meta.get("summary") or {}
+    for key in ("total", "ok", "ng"):
+        if key not in summary:
+            raise ValidationError(f"Summary missing '{key}'.")

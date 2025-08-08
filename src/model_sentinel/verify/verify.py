@@ -4,7 +4,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from model_sentinel.verify.metadata import compute_run_metadata
+from model_sentinel.verify.metadata import (
+    compute_run_metadata,
+    validate_metadata_payload,
+    validate_session_files,
+)
 from model_sentinel.verify.session import build_session_files
 from model_sentinel.verify.storage import StorageManager
 
@@ -290,6 +294,11 @@ class Verify:
 
         session_files: list of {filename, hash, content, approved(bool)}
         """
+        # Lightweight validation (non-strict; warn instead of aborting on error)
+        try:  # pragma: no cover (warnings path)
+            validate_session_files(session_files)  # type: ignore[arg-type]
+        except Exception as e:  # noqa: BLE001
+            print(f"[warn] session validation skipped: {e}")
         # Resolve tool version without creating circular imports
         def _resolve_tool_version() -> str:
             try:
@@ -322,6 +331,10 @@ class Verify:
         if isinstance(new_meta.get("run"), dict):
             new_meta["run"]["run_id"] = str(uuid.uuid4())
 
+        try:  # pragma: no cover (warnings path)
+            validate_metadata_payload(new_meta)  # type: ignore[arg-type]
+        except Exception as e:  # noqa: BLE001
+            print(f"[warn] metadata payload validation failed: {e}")
         self.storage.save_metadata(model_dir, new_meta)
 
     def verify_hf_model(self, repo_id: str, revision: str = "main") -> dict:
