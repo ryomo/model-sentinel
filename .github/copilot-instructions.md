@@ -3,6 +3,7 @@
 ## General Guidelines
 
 - Always use context7 to look up library or API documentation when needed.
+- Always consult the repository's README.md for project-specific run and test commands before executing anything. In particular, follow the Testing section and prefer `uv run python -m unittest` over other frameworks.
 - NEVER run git commands or commit changes.
   - However, when appropriate, suggest recommended git commands or commit messages in the chat, but do not execute them. The user will handle all git operations.
   - Always write commit messages in English.
@@ -26,7 +27,7 @@
 #### Testing
 
 - When implementing new classes or functions, create corresponding test files in the `tests/` directory
-- **Use `unittest` framework for all testing - DO NOT use `pytest`.**
+- **Use `unittest` framework for all testing.**
 - Follow the existing test structure in the `tests/` directory
 - Follow existing test file naming conventions (e.g., `test_module.py` for testing `module.py`)
 - Aim for comprehensive test coverage including both positive and negative test cases
