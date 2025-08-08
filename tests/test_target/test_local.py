@@ -3,6 +3,7 @@
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory, NamedTemporaryFile
+import tempfile
 from unittest.mock import Mock, patch
 
 from model_sentinel.target.local import TargetLocal, verify_local_model
@@ -15,6 +16,25 @@ class TestTargetLocal(unittest.TestCase):
         """Set up test fixtures before each test method."""
         self.target = TargetLocal()
         self.test_model_dir = Path("/tmp/test_model")
+        # Route storage to temp dir
+        self._temp_dir = Path(tempfile.mkdtemp())
+        self.target.storage = self.target.storage.__class__(self._temp_dir / ".model-sentinel")
+
+    def tearDown(self):
+        # Cleanup temp storage
+        if hasattr(self, "_temp_dir") and self._temp_dir.exists():
+            for p in sorted(self._temp_dir.rglob("*"), reverse=True):
+                if p.is_file():
+                    p.unlink()
+                elif p.is_dir():
+                    try:
+                        p.rmdir()
+                    except Exception:
+                        pass
+            try:
+                self._temp_dir.rmdir()
+            except Exception:
+                pass
 
     def test_init(self):
         """Test TargetLocal class initialization."""

@@ -18,6 +18,25 @@ class TestTargetHF(unittest.TestCase):
         self.test_repo_id = "test/repo"
         self.test_revision = "main"
         self.test_model_hash = "abc123456"
+        # Route storage to temp dir
+        self._temp_dir = Path(tempfile.mkdtemp())
+        self.target.storage = self.target.storage.__class__(self._temp_dir / ".model-sentinel")
+
+    def tearDown(self):
+        # Cleanup temp storage
+        if hasattr(self, "_temp_dir") and self._temp_dir.exists():
+            for p in sorted(self._temp_dir.rglob("*"), reverse=True):
+                if p.is_file():
+                    p.unlink()
+                elif p.is_dir():
+                    try:
+                        p.rmdir()
+                    except Exception:
+                        pass
+            try:
+                self._temp_dir.rmdir()
+            except Exception:
+                pass
 
     def test_init(self):
         """Test TargetHF class initialization."""

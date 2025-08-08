@@ -17,6 +17,8 @@ class TestTargetBase(unittest.TestCase):
         """Set up test fixtures before each test method."""
         self.target = TargetBase()
         self.temp_dir = Path(tempfile.mkdtemp())
+        # Route storage to temp dir to avoid polluting repo
+        self.target.storage = self.target.storage.__class__(self.temp_dir / ".model-sentinel")
 
         # Create test files
         self.test_py_file = self.temp_dir / "test.py"
