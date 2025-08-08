@@ -106,6 +106,7 @@ class TargetBase:
         self.storage.ensure_directories()
 
         all_verified = True
+        session: list[dict] = []
 
         for file_info in files_to_check:
             filename = file_info["filename"]
@@ -115,11 +116,27 @@ class TargetBase:
             print(f"File: {filename}, Hash: {file_hash}")
 
             if not self.verify.check_file_changed(model_dir, filename, file_hash):
+                # Not changed in storage; skip session record
                 continue
 
             file_verified = self.verify.verify_file(filename, file_hash, content, model_dir)
+            session.append(
+                {
+                    "filename": filename,
+                    "hash": file_hash,
+                    "content": content,
+                    "approved": bool(file_verified),
+                }
+            )
             if not file_verified:
                 all_verified = False
+
+        # Always write run metadata (even if not all verified)
+        try:
+            self.verify._write_run_metadata(model_dir, session)
+        except Exception as e:
+            # Do not fail verification due to metadata write
+            print(f"Warning: failed to write run metadata: {e}")
 
         return all_verified
 

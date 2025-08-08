@@ -188,10 +188,32 @@ def create_final_verification_interface(
                 filename = files_to_verify[i]["filename"]
                 approved_files.append(filename)
 
-        # Check if all files are approved
+        # Build session records and try to always write run metadata on partial approval
+        verify = Verify()
+        try:
+            session_files = []
+            for i, fi in enumerate(files_to_verify):
+                fname = fi.get("filename", "")
+                session_files.append(
+                    {
+                        "filename": fname,
+                        "hash": fi.get("hash", ""),
+                        "content": fi.get("content", ""),
+                        "approved": (i < len(checkbox_values)) and bool(checkbox_values[i]),
+                    }
+                )
+
+            model_dir = verify._resolve_model_dir(verification_result=verification_result)
+            # Only write here when not all approved OR when no files approved; success path will call save_verification_results()
+            if model_dir is not None and (len(approved_files) != total_files or total_files == 0):
+                verify._write_run_metadata(model_dir, session_files)
+        except Exception as e:
+            # Do not break GUI on metadata write issues
+            print(f"Warning: failed to write run metadata from GUI: {e}")
+
+        # Metadata for partial/none approvals is written above; now check if all files are approved
         if len(approved_files) == total_files and total_files > 0:
             # All files approved - save and return success
-            verify = Verify()
             verify.save_verification_results(verification_result, approved_files)
             gui_state["verification_result"] = True
 

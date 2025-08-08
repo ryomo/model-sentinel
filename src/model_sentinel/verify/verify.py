@@ -1,8 +1,13 @@
 import pydoc
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 from model_sentinel.verify.storage import StorageManager
+
+
+FILES_NONE_VERIFIED = "  Files: None verified"
 
 
 class Verify:
@@ -15,7 +20,8 @@ class Verify:
     def _update_file_metadata(
         self, model_dir: Path, filename: str, file_hash: str, content: str
     ) -> None:
-        """Update file content and metadata.
+        """
+        Update file content (and legacy metadata when applicable).
 
         Args:
             model_dir: Model directory
@@ -26,15 +32,19 @@ class Verify:
         # Save file content
         self.storage.save_file_content(model_dir, filename, content)
 
-        # Update metadata
+        # Note: New metadata schema is written after verification flow completes.
+        # For backward compatibility with existing metadata, keep minimal legacy fields
+        # when an old-style dict format is detected.
         metadata = self.storage.load_metadata(model_dir)
-        metadata["files"][filename] = {
-            "hash": file_hash,
-            "size": len(content.encode("utf-8")),
-            "verified_at": self.storage.get_current_timestamp(),
-        }
-        metadata["last_verified"] = self.storage.get_current_timestamp()
-        self.storage.save_metadata(model_dir, metadata)
+        files_entry = metadata.get("files")
+        if isinstance(files_entry, dict):
+            files_entry[filename] = {
+                "hash": file_hash,
+                "size": len(content.encode("utf-8")),
+                "verified_at": self.storage.get_current_timestamp(),
+            }
+            metadata["last_verified"] = self.storage.get_current_timestamp()
+            self.storage.save_metadata(model_dir, metadata)
 
     def verify_file(
         self, filename: str, current_hash: str, content: str, model_dir: Path
@@ -99,7 +109,15 @@ class Verify:
             True if file changed or is new, False if unchanged
         """
         metadata = self.storage.load_metadata(model_dir)
-        file_info = metadata.get("files", {}).get(filename)
+        files_entry = metadata.get("files", {})
+        file_info = None
+        if isinstance(files_entry, dict):
+            file_info = files_entry.get(filename)
+        elif isinstance(files_entry, list):
+            for item in files_entry:
+                if item.get("path") == filename:
+                    file_info = item
+                    break
 
         if file_info is None:
             print(f"No previous hash found for {filename}. This is the first check.")
@@ -175,13 +193,25 @@ class Verify:
     def _display_file_info(self, model_dir: Path) -> None:
         """Display file information for a model."""
         metadata = self.storage.load_metadata(model_dir)
-        files = metadata.get("files", {})
-        if files:
-            print("  Verified Files:")
-            for filename, file_info in files.items():
-                print(f"    - {filename}: {file_info.get('hash', 'unknown')}")
+        files_entry = metadata.get("files", {})
+        if isinstance(files_entry, dict):
+            files = files_entry
+            if files:
+                print("  Verified Files:")
+                for filename, file_info in files.items():
+                    print(f"    - {filename}: {file_info.get('hash', 'unknown')}")
+            else:
+                print(FILES_NONE_VERIFIED)
+        elif isinstance(files_entry, list):
+            files_list = files_entry
+            if files_list:
+                print("  Verified Files:")
+                for item in files_list:
+                    print(f"    - {item.get('path', 'unknown')}: {item.get('hash', 'unknown')}")
+            else:
+                print(FILES_NONE_VERIFIED)
         else:
-            print("  Files: None verified")
+            print(FILES_NONE_VERIFIED)
 
     def delete_hash_file(self) -> bool:
         """Delete the directory.
@@ -238,6 +268,144 @@ class Verify:
             result["message"] = f"Found {len(files_info)} files that need verification."
 
         return result
+
+    def _determine_target_from_model_dir(self, model_dir: Path) -> tuple[str, str]:
+        """Infer target type and id from model_dir path.
+
+        Returns: (type, id) where id is path relative to base_dir (hf/... or local/...).
+        """
+        try:
+            rel = model_dir.relative_to(self.storage.base_dir)
+            parts = rel.parts
+            if len(parts) >= 1:
+                t = parts[0]
+                return t, "/".join(parts[1:])
+        except Exception:
+            pass
+        return "unknown", str(model_dir)
+
+    def _approved_map_from_existing(self, existing_files: Any) -> dict[str, dict[str, Any]]:
+        """Build approved file map from existing metadata files entry (legacy dict or new list)."""
+        approved_map: dict[str, dict[str, Any]] = {}
+        if isinstance(existing_files, dict):
+            for k, v in existing_files.items():
+                approved_map[k] = {
+                    "hash": v.get("hash"),
+                    "size": v.get("size"),
+                    "verified_at": v.get("verified_at"),
+                }
+        elif isinstance(existing_files, list):
+            for item in existing_files:
+                if item.get("status", "ok") == "ok":
+                    approved_map[item.get("path", "")] = {
+                        "hash": item.get("hash"),
+                        "size": item.get("size"),
+                        "verified_at": item.get("verified_at"),
+                    }
+        return approved_map
+
+    def _files_list_from_map(self, approved_map: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+        """Convert approved file map to the new list-based files entry."""
+        files_list: list[dict[str, Any]] = []
+        for path in sorted(approved_map.keys()):
+            rec = approved_map[path]
+            files_list.append(
+                {
+                    "path": path,
+                    "size": rec.get("size"),
+                    "hash": rec.get("hash"),
+                    "status": "ok",
+                    "verified_at": rec.get("verified_at"),
+                }
+            )
+        return files_list
+
+    def _build_summary_and_overall(self, total: int, ok_count: int, ng_count: int) -> tuple[dict[str, int], str]:
+        """Build summary dict and overall status string."""
+        summary = {
+            "total": total,
+            "ok": ok_count,
+            "ng": ng_count,
+            "skipped": 0,
+            "unknown": 0,
+        }
+        if ng_count == 0:
+            overall = "ok"
+        elif ok_count == 0:
+            overall = "ng"
+        else:
+            overall = "mixed"
+        return summary, overall
+
+    def _write_run_metadata(self, model_dir: Path, session_files: list[dict[str, Any]]) -> None:
+        """Write metadata.json for this run, aggregating approved files and summary.
+
+        session_files: list of {filename, hash, content, approved(bool)}
+        """
+        # Resolve tool version without creating circular imports
+        def _resolve_tool_version() -> str:
+            try:
+                try:
+                    # Python 3.8+
+                    from importlib.metadata import version  # type: ignore
+                except ImportError:  # pragma: no cover
+                    from importlib_metadata import version  # type: ignore
+                return version("model-sentinel")
+            except Exception:
+                try:
+                    from model_sentinel import __version__ as v  # type: ignore
+                    return v
+                except Exception:
+                    return "unknown"
+        # Load existing metadata (support old/new)
+        existing = self.storage.load_metadata(model_dir)
+        existing_files = existing.get("files")
+
+        # Build mapping of last approved files
+        approved_map = self._approved_map_from_existing(existing_files)
+
+        # Merge current session approvals
+        ok_count = 0
+        ng_count = 0
+        total = len(session_files)
+        for sf in session_files:
+            if sf.get("approved"):
+                ok_count += 1
+                fname = sf["filename"]
+                content = sf.get("content", "")
+                approved_map[fname] = {
+                    "hash": sf["hash"],
+                    "size": len(content.encode("utf-8")),
+                    "verified_at": self.storage.get_current_timestamp(),
+                }
+            else:
+                ng_count += 1
+
+        # Convert to list for new schema
+        files_list = self._files_list_from_map(approved_map)
+
+        # Build summary and overall
+        summary, overall = self._build_summary_and_overall(total, ok_count, ng_count)
+
+        t_type, t_id = self._determine_target_from_model_dir(model_dir)
+
+        new_meta = {
+            "schema_version": 1,
+            "run": {
+                "run_id": str(uuid.uuid4()),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "tool_version": _resolve_tool_version(),
+                "target": {"type": t_type, "id": t_id},
+            },
+            # Keep legacy keys if present
+            "model_hash": existing.get("model_hash"),
+            "last_verified": existing.get("last_verified"),
+            "overall_status": overall,
+            "summary": summary,
+            "files": files_list,
+        }
+
+        self.storage.save_metadata(model_dir, new_meta)
 
     def verify_hf_model(self, repo_id: str, revision: str = "main") -> dict:
         """Verify HF model and return result."""
@@ -323,6 +491,20 @@ class Verify:
             approved_count = self._update_approved_files_directory(
                 model_dir, verification_result, approved_files
             )
+
+            # Also write metadata report for this session
+            session = []
+            for file_info in verification_result.get("files_info", []):
+                fname = file_info.get("filename", "")
+                session.append(
+                    {
+                        "filename": fname,
+                        "hash": file_info.get("hash", ""),
+                        "content": file_info.get("content", ""),
+                        "approved": fname in approved_files,
+                    }
+                )
+            self._write_run_metadata(model_dir, session)
 
             # Register model in registry
             model_type, model_id = model_key.split("/", 1)
