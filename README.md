@@ -10,6 +10,23 @@ A security verification tool for model scripts - Detects and verifies changes in
 - **Interactive Approval**: Review and approve content of changed files
 - **GUI Support**: Intuitive web-based GUI interface
 
+## Quickstart
+
+Get started in seconds:
+
+```bash
+pip install "model-sentinel[gui]"
+```
+
+Embed verification in your Python script (Hugging Face model example):
+
+```python
+from model_sentinel import verify_hf_model
+
+# Launches interactive verification (GUI if gui=True) and exits on rejection for safety.
+verify_hf_model("ryomo/malicious-code-test", gui=True)
+```
+
 ## Installation
 
 ### Basic Version (CLI only)
@@ -34,6 +51,7 @@ model-sentinel
 
 # Verify Hugging Face model
 model-sentinel --hf ryomo/malicious-code-test
+model-sentinel --hf ryomo/malicious-code-test --revision main  # optional revision
 
 # Verify local model
 model-sentinel --local ./my-model-directory
@@ -60,13 +78,20 @@ model-sentinel --gui --local ./my-model-directory
 from model_sentinel import verify_hf_model, verify_local_model
 
 # Verify Hugging Face model
-result = verify_hf_model("ryomo/malicious-code-test")  # Returns True if verified, False otherwise
+verify_hf_model("ryomo/malicious-code-test")
 
 # Verify local model
-result = verify_local_model("./my-model-directory")  # Returns True if verified, False otherwise
+verify_local_model("./my-model-directory")
 
 # Verify with GUI mode
-result = verify_hf_model("ryomo/malicious-code-test", gui=True)  # GUI window will open
+verify_hf_model("ryomo/malicious-code-test", gui=True)  # GUI window will open
+
+# Receive boolean result without exiting on rejection
+result = verify_hf_model("ryomo/malicious-code-test", exit_on_reject=False)
+if result:
+    print("Model verified. Proceeding...")
+else:
+    print("Verification failed or was rejected.")
 ```
 
 ## Verification Process
@@ -85,8 +110,9 @@ Verification data is stored in a structured `.model-sentinel/` directory:
 .model-sentinel/
 ├── registry.json           # Global registry of verified models
 ├── local/                  # Local models
-│   └── {model_name}_{hash}/
+│   └── {model_name}_{path_hash8}/   # Short hash of absolute path for uniqueness
 │       ├── metadata.json   # Model metadata and file info
+│       ├── original_path.txt # Original model directory path (for local models)
 │       └── files/          # Individual file content
 └── hf/                     # HuggingFace models
     └── {org}/{model}@{revision}/
