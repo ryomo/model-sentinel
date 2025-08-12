@@ -26,7 +26,7 @@ class Verify:
         self, model_dir: Path, filename: str, file_hash: str, content: str
     ) -> None:
         """
-        Update file content (and legacy metadata when applicable).
+        Update file content and persist metadata (approved_files schema).
 
         Args:
             model_dir: Model directory
@@ -37,19 +37,30 @@ class Verify:
         # Save file content
         self.storage.save_file_content(model_dir, filename, content)
 
-        # Note: New metadata schema is written after verification flow completes.
-        # For backward compatibility with existing metadata, keep minimal legacy fields
-        # when an old-style dict format is detected.
+        # Update approved_files entry
         metadata = self.storage.load_metadata(model_dir)
-        files_entry = metadata.get("files")
-        if isinstance(files_entry, dict):
-            files_entry[filename] = {
+        approved = metadata.get("approved_files") or []
+        ts = self.storage.get_current_timestamp()
+        size = len(content.encode("utf-8"))
+        # Replace or append
+        replaced = False
+        for item in approved:
+            if item.get("path") == filename:
+                item["hash"] = file_hash
+                item["size"] = size
+                item["verified_at"] = ts
+                replaced = True
+                break
+        if not replaced:
+            approved.append({
+                "path": filename,
                 "hash": file_hash,
-                "size": len(content.encode("utf-8")),
-                "verified_at": self.storage.get_current_timestamp(),
-            }
-            metadata["last_verified"] = self.storage.get_current_timestamp()
-            self.storage.save_metadata(model_dir, metadata)
+                "size": size,
+                "verified_at": ts,
+            })
+        metadata["approved_files"] = approved
+        metadata["last_verified"] = ts
+        self.storage.save_metadata(model_dir, metadata)
 
     def verify_file(
         self, filename: str, current_hash: str, content: str, model_dir: Path
@@ -114,15 +125,11 @@ class Verify:
             True if file changed or is new, False if unchanged
         """
         metadata = self.storage.load_metadata(model_dir)
-        files_entry = metadata.get("files", {})
         file_info = None
-        if isinstance(files_entry, dict):
-            file_info = files_entry.get(filename)
-        elif isinstance(files_entry, list):
-            for item in files_entry:
-                if item.get("path") == filename:
-                    file_info = item
-                    break
+        for item in metadata.get("approved_files", []):
+            if item.get("path") == filename:
+                file_info = item
+                break
 
         if file_info is None:
             print(f"No previous hash found for {filename}. This is the first check.")
@@ -198,23 +205,11 @@ class Verify:
     def _display_file_info(self, model_dir: Path) -> None:
         """Display file information for a model."""
         metadata = self.storage.load_metadata(model_dir)
-        files_entry = metadata.get("files", {})
-        if isinstance(files_entry, dict):
-            files = files_entry
-            if files:
-                print("  Verified Files:")
-                for filename, file_info in files.items():
-                    print(f"    - {filename}: {file_info.get('hash', 'unknown')}")
-            else:
-                print(FILES_NONE_VERIFIED)
-        elif isinstance(files_entry, list):
-            files_list = files_entry
-            if files_list:
-                print("  Verified Files:")
-                for item in files_list:
-                    print(f"    - {item.get('path', 'unknown')}: {item.get('hash', 'unknown')}")
-            else:
-                print(FILES_NONE_VERIFIED)
+        files_list = metadata.get("approved_files", [])
+        if files_list:
+            print("  Verified Files:")
+            for item in files_list:
+                print(f"    - {item.get('path', 'unknown')}: {item.get('hash', 'unknown')}")
         else:
             print(FILES_NONE_VERIFIED)
 

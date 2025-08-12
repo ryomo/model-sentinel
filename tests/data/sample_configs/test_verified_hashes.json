@@ -1,8 +1,22 @@
 {
     "test_repo": {
-        "files": {
-            "test_file.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        "schema_version": 1,
+        "run": {
+            "run_id": null,
+            "timestamp": "2025-07-23T00:00:00Z",
+            "tool_version": "unknown",
+            "target": {"type": "hf", "id": "test_repo@main"}
         },
-        "last_checked": "2025-07-23T00:00:00Z"
+        "model_hash": null,
+        "last_verified": "2025-07-23T00:00:00Z",
+        "overall_status": "ok",
+        "approved_files": [
+            {
+                "path": "test_file.py",
+                "hash": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "size": 0,
+                "verified_at": "2025-07-23T00:00:00Z"
+            }
+        ]
     }
 }

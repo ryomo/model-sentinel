@@ -98,15 +98,24 @@ Example `metadata.json`:
 
 ```json
 {
+  "schema_version": 1,
+  "run": {
+    "run_id": "...",
+    "timestamp": "2025-07-28T10:30:00Z",
+    "tool_version": "0.3.0",
+    "target": {"type": "hf", "id": "org/model@main"}
+  },
   "model_hash": "abc123...",
   "last_verified": "2025-07-28T10:30:00Z",
-  "files": {
-    "modeling.py": {
+  "overall_status": "ok",
+  "approved_files": [
+    {
+      "path": "modeling.py",
       "hash": "def456...",
       "size": 1024,
       "verified_at": "2025-07-28T10:30:00Z"
     }
-  }
+  ]
 }
 ```
 

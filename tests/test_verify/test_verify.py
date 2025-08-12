@@ -405,7 +405,7 @@ class TestVerifyBusinessLogic(unittest.TestCase):
         initial_metadata = {
             "model_hash": "old_hash",
             "last_verified": "2025-08-04T12:00:00Z",
-            "files": {}
+            "approved_files": []
         }
         verify.storage.load_metadata = Mock(return_value=initial_metadata)
         verify.storage.save_metadata = Mock()
@@ -450,13 +450,14 @@ class TestVerifyBusinessLogic(unittest.TestCase):
         expected_metadata = {
             "model_hash": "old_hash",
             "last_verified": "2025-08-05T12:00:00Z",
-            "files": {
-                "approved.py": {
+            "approved_files": [
+                {
+                    "path": "approved.py",
                     "hash": "hash1",
                     "size": len("# Approved content".encode('utf-8')),
                     "verified_at": "2025-08-05T12:00:00Z"
                 }
-            }
+            ]
         }
         self.assertEqual(saved_metadata, expected_metadata)
 

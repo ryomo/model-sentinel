@@ -98,7 +98,6 @@ class TestTargetHF(unittest.TestCase):
         initial_metadata = {
             "model_hash": "old_hash",
             "last_verified": "2025-07-27T00:00:00Z",
-            "files": {}
         }
         self.target.storage.save_metadata(model_dir, initial_metadata)
 

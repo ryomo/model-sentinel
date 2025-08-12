@@ -119,7 +119,7 @@ class StorageManager:
             return {
                 "model_hash": None,
                 "last_verified": None,
-                "files": {}
+                "approved_files": []
             }
 
         with open(metadata_file, "r", encoding="utf-8") as f:
