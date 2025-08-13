@@ -4,7 +4,7 @@ import hashlib
 import json
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 
 class StorageManager:
@@ -36,21 +36,46 @@ class StorageManager:
         self.local_dir.mkdir(exist_ok=True)
 
     def generate_local_model_dir_name(self, model_path: Path) -> str:
-        """Generate directory name for local models using hybrid approach.
+        """Generate directory name for local models based on content hash.
+
+        The name is derived from the directory content to improve portability
+        and reproducibility. It uses the SHA-256 hash of all "*.py" files
+        under the directory, computed by concatenating each file's relative
+        path (to the root) and its binary content in sorted order.
 
         Args:
             model_path: Path to the local model directory
 
         Returns:
-            Directory name in format: {model_name}_{path_hash}
+            Directory name in format: {model_name}_{content_hash8}
         """
-        # Get readable model name
         readable_name = model_path.name
+        content_hash = self.calculate_directory_hash(model_path, pattern="*.py")
+        return f"{readable_name}_{content_hash[:8]}"
 
-        # Generate path hash for uniqueness
-        path_hash = hashlib.sha256(str(model_path).encode()).hexdigest()[:8]
+    def calculate_file_hash(self, file_path: Path | str) -> str:
+        """Calculate SHA-256 hash for a file's binary content."""
+        hash_obj = hashlib.sha256()
+        with open(file_path, "rb") as f:
+            while chunk := f.read(8192):
+                hash_obj.update(chunk)
+        return hash_obj.hexdigest()
 
-        return f"{readable_name}_{path_hash}"
+    def calculate_directory_hash(
+        self, directory: Path | str, pattern: str = "*.py"
+    ) -> str:
+        """Calculate SHA-256 hash for files in a directory matching a pattern."""
+        hash_obj = hashlib.sha256()
+        directory_path = Path(directory)
+
+        for file_path in sorted(directory_path.rglob(pattern)):
+            rel_path = file_path.relative_to(directory_path)
+            hash_obj.update(str(rel_path).encode())
+            with open(file_path, "rb") as f:
+                while chunk := f.read(8192):
+                    hash_obj.update(chunk)
+
+        return hash_obj.hexdigest()
 
     def get_local_model_dir(self, model_path: Path) -> Path:
         """Get directory path for local model.

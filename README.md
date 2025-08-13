@@ -110,7 +110,7 @@ Verification data is stored in a structured `.model-sentinel/` directory:
 .model-sentinel/
 ├── registry.json           # Global registry of verified models
 ├── local/                  # Local models
-│   └── {model_name}_{path_hash8}/   # Short hash of absolute path for uniqueness
+│   └── {model_name}_{content_hash8}/   # Short hash of directory content ("*.py") for portability
 │       ├── metadata.json   # Model metadata and file info
 │       ├── original_path.txt # Original model directory path (for local models)
 │       └── files/          # Individual file content

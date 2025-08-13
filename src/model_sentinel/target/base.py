@@ -1,4 +1,3 @@
-import hashlib
 from pathlib import Path
 
 from model_sentinel.verify.verify import Verify
@@ -17,20 +16,8 @@ class TargetBase:
         self.storage = StorageManager()
 
     def _calculate_file_hash(self, file_path: Path | str) -> str:
-        """
-        Calculate SHA256 hash for a file.
-
-        Args:
-            file_path: Path to the file
-
-        Returns:
-            str: Hexadecimal hash of the file contents
-        """
-        hash_obj = hashlib.sha256()
-        with open(file_path, "rb") as f:
-            while chunk := f.read(8192):
-                hash_obj.update(chunk)
-        return hash_obj.hexdigest()
+        """Calculate SHA256 hash for a file."""
+        return self.storage.calculate_file_hash(file_path)
 
     def _get_files_by_pattern(
         self, directory: Path | str, pattern: str = "*.py"
@@ -51,30 +38,8 @@ class TargetBase:
     def _calculate_directory_hash(
         self, directory: Path | str, pattern: str = "*.py"
     ) -> str:
-        """
-        Calculate hash for all files in directory matching the pattern.
-
-        Args:
-            directory: Directory path to hash
-            pattern: Glob pattern to match files
-
-        Returns:
-            str: Hexadecimal hash of the directory contents
-        """
-        hash_obj = hashlib.sha256()
-        directory_path = Path(directory)
-
-        for file_path in sorted(directory_path.rglob(pattern)):
-            # Add relative path to hash for consistency
-            rel_path = file_path.relative_to(directory_path)
-            hash_obj.update(str(rel_path).encode())
-
-            # Add file content to hash
-            with open(file_path, "rb") as f:
-                while chunk := f.read(8192):
-                    hash_obj.update(chunk)
-
-        return hash_obj.hexdigest()
+        """Calculate SHA256 hash of a directory."""
+        return self.storage.calculate_directory_hash(directory, pattern)
 
     def _read_file_content(self, file_path: Path | str) -> str:
         """
