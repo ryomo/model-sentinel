@@ -10,6 +10,7 @@ STATUS_FAILED = "⚠️ Failed"
 STATUS_ERROR = "❌ Error"
 STATUS_PENDING = "🔄 Pending"
 
+
 def format_status(status: str) -> str:
     """Format status for display."""
     status_icons = {

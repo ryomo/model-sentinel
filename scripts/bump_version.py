@@ -9,6 +9,7 @@ Usage:
 Updates the version in pyproject.toml and src/model_sentinel/__init__.py.
 After updating, prints recommended commands for commit and tag.
 """
+
 import re
 import sys
 from pathlib import Path
@@ -56,7 +57,5 @@ Recommended commands:
     git push
     git tag v{new_version}
     git push origin v{new_version}
-""".format(
-        new_version=new_version
-    )
+""".format(new_version=new_version)
 )

@@ -1,8 +1,9 @@
 """
 Tests for model_sentinel.target.hf module.
 """
+
 import unittest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 import tempfile
 from pathlib import Path
 
@@ -20,7 +21,9 @@ class TestTargetHF(unittest.TestCase):
         self.test_model_hash = "abc123456"
         # Route storage to temp dir
         self._temp_dir = Path(tempfile.mkdtemp())
-        self.target.storage = self.target.storage.__class__(self._temp_dir / ".model-sentinel")
+        self.target.storage = self.target.storage.__class__(
+            self._temp_dir / ".model-sentinel"
+        )
 
     def tearDown(self):
         # Cleanup temp storage
@@ -53,7 +56,7 @@ class TestTargetHF(unittest.TestCase):
         result = self.target._get_repo_key("test/repo")
         self.assertEqual(result, "hf/test/repo")
 
-    @patch('model_sentinel.target.hf.HfApi')
+    @patch("model_sentinel.target.hf.HfApi")
     def test_detect_model_changes_no_changes(self, mock_hf_api):
         """Test detect_model_changes when no changes are detected."""
         # Mock HfApi and model info
@@ -64,14 +67,21 @@ class TestTargetHF(unittest.TestCase):
         mock_model_info.sha = "existing_hash"
         mock_api.model_info.return_value = mock_model_info
 
-        with patch('model_sentinel.target.base.TargetBase.check_model_hash_changed', return_value=False):
-            with patch('builtins.print'):
-                result = self.target.detect_model_changes(self.test_repo_id, self.test_revision)
+        with patch(
+            "model_sentinel.target.base.TargetBase.check_model_hash_changed",
+            return_value=False,
+        ):
+            with patch("builtins.print"):
+                result = self.target.detect_model_changes(
+                    self.test_repo_id, self.test_revision
+                )
 
         self.assertIsNone(result)
-        mock_api.model_info.assert_called_once_with(repo_id=self.test_repo_id, revision=self.test_revision)
+        mock_api.model_info.assert_called_once_with(
+            repo_id=self.test_repo_id, revision=self.test_revision
+        )
 
-    @patch('model_sentinel.target.hf.HfApi')
+    @patch("model_sentinel.target.hf.HfApi")
     def test_detect_model_changes_with_changes(self, mock_hf_api):
         """Test detect_model_changes when changes are detected."""
         # Mock HfApi and model info
@@ -82,16 +92,23 @@ class TestTargetHF(unittest.TestCase):
         mock_model_info.sha = "new_hash"
         mock_api.model_info.return_value = mock_model_info
 
-        with patch('model_sentinel.target.base.TargetBase.check_model_hash_changed', return_value=True):
-            with patch('builtins.print'):
-                result = self.target.detect_model_changes(self.test_repo_id, self.test_revision)
+        with patch(
+            "model_sentinel.target.base.TargetBase.check_model_hash_changed",
+            return_value=True,
+        ):
+            with patch("builtins.print"):
+                result = self.target.detect_model_changes(
+                    self.test_repo_id, self.test_revision
+                )
 
         self.assertEqual(result, "new_hash")
 
     def test_update_model_hash_for_repo(self):
         """Test updating model hash for repository."""
         # Create test model directory using directory system
-        model_dir = self.target.storage.get_hf_model_dir(self.test_repo_id, self.test_revision)
+        model_dir = self.target.storage.get_hf_model_dir(
+            self.test_repo_id, self.test_revision
+        )
         model_dir.mkdir(parents=True, exist_ok=True)
 
         # Set initial metadata
@@ -102,13 +119,15 @@ class TestTargetHF(unittest.TestCase):
         self.target.storage.save_metadata(model_dir, initial_metadata)
 
         # Update model hash
-        self.target.update_model_hash_for_repo(self.test_repo_id, self.test_revision, "new_hash")
+        self.target.update_model_hash_for_repo(
+            self.test_repo_id, self.test_revision, "new_hash"
+        )
 
         # Verify the data was updated
         updated_metadata = self.target.storage.load_metadata(model_dir)
         self.assertEqual(updated_metadata["model_hash"], "new_hash")
 
-    @patch('model_sentinel.target.hf.HfApi')
+    @patch("model_sentinel.target.hf.HfApi")
     def test_verify_remote_files_success(self, mock_hf_api):
         """Test verify_remote_files when verification is successful."""
         # Mock HfApi and model info
@@ -125,14 +144,18 @@ class TestTargetHF(unittest.TestCase):
         mock_api.model_info.return_value = mock_model_info
 
         # Mock file download
-        with patch.object(self.target, '_download_file_content', return_value="print('test')"):
-            with patch.object(self.target, '_verify_files_workflow', return_value=True):
-                with patch('builtins.print'):
-                    result = self.target.verify_remote_files(self.test_repo_id, self.test_revision)
+        with patch.object(
+            self.target, "_download_file_content", return_value="print('test')"
+        ):
+            with patch.object(self.target, "_verify_files_workflow", return_value=True):
+                with patch("builtins.print"):
+                    result = self.target.verify_remote_files(
+                        self.test_repo_id, self.test_revision
+                    )
 
         self.assertTrue(result)
 
-    @patch('model_sentinel.target.hf.HfApi')
+    @patch("model_sentinel.target.hf.HfApi")
     def test_verify_remote_files_download_failure(self, mock_hf_api):
         """Test verify_remote_files when file download fails."""
         # Mock HfApi and model info
@@ -149,40 +172,46 @@ class TestTargetHF(unittest.TestCase):
         mock_api.model_info.return_value = mock_model_info
 
         # Mock file download failure
-        with patch.object(self.target, '_download_file_content', return_value=None):
-            with patch('builtins.print'):
-                result = self.target.verify_remote_files(self.test_repo_id, self.test_revision)
+        with patch.object(self.target, "_download_file_content", return_value=None):
+            with patch("builtins.print"):
+                result = self.target.verify_remote_files(
+                    self.test_repo_id, self.test_revision
+                )
 
         self.assertFalse(result)
 
-    @patch('model_sentinel.target.hf.HfApi')
+    @patch("model_sentinel.target.hf.HfApi")
     def test_download_file_content_success(self, mock_hf_api):
         """Test successful file download."""
         mock_api = Mock()
         mock_hf_api.return_value = mock_api
 
         # Create temporary file for testing
-        with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.py') as temp_file:
+        with tempfile.NamedTemporaryFile(
+            mode="w", delete=False, suffix=".py"
+        ) as temp_file:
             temp_file.write("print('hello world')")
             temp_file_path = temp_file.name
 
         try:
             mock_api.hf_hub_download.return_value = temp_file_path
 
-            with patch('builtins.print'):
-                result = self.target._download_file_content(mock_api, self.test_repo_id, self.test_revision, "test.py")
+            with patch("builtins.print"):
+                result = self.target._download_file_content(
+                    mock_api, self.test_repo_id, self.test_revision, "test.py"
+                )
 
             self.assertEqual(result, "print('hello world')")
             mock_api.hf_hub_download.assert_called_once_with(
                 repo_id=self.test_repo_id,
                 filename="test.py",
-                revision=self.test_revision
+                revision=self.test_revision,
             )
         finally:
             # Clean up temporary file
             Path(temp_file_path).unlink()
 
-    @patch('model_sentinel.target.hf.HfApi')
+    @patch("model_sentinel.target.hf.HfApi")
     def test_download_file_content_failure(self, mock_hf_api):
         """Test file download failure."""
         mock_api = Mock()
@@ -191,12 +220,14 @@ class TestTargetHF(unittest.TestCase):
         # Mock download exception
         mock_api.hf_hub_download.side_effect = Exception("Network error")
 
-        with patch('builtins.print'):
-            result = self.target._download_file_content(mock_api, self.test_repo_id, self.test_revision, "test.py")
+        with patch("builtins.print"):
+            result = self.target._download_file_content(
+                mock_api, self.test_repo_id, self.test_revision, "test.py"
+            )
 
         self.assertIsNone(result)
 
-    @patch('model_sentinel.target.hf.HfApi')
+    @patch("model_sentinel.target.hf.HfApi")
     def test_get_files_for_verification_success(self, mock_hf_api):
         """Test get_files_for_verification with successful file retrieval."""
         mock_api = Mock()
@@ -217,19 +248,23 @@ class TestTargetHF(unittest.TestCase):
 
         # Mock file download for Python files only
         def mock_download_side_effect(api, repo_id, revision, filename):
-            if filename.endswith('.py'):
+            if filename.endswith(".py"):
                 return f"# Content of {filename}"
             return None
 
-        with patch.object(self.target, '_download_file_content', side_effect=mock_download_side_effect):
-            result = self.target.get_files_for_verification(self.test_repo_id, self.test_revision)
+        with patch.object(
+            self.target, "_download_file_content", side_effect=mock_download_side_effect
+        ):
+            result = self.target.get_files_for_verification(
+                self.test_repo_id, self.test_revision
+            )
 
         self.assertEqual(len(result), 1)
-        self.assertEqual(result[0]['filename'], 'test1.py')
-        self.assertEqual(result[0]['content'], '# Content of test1.py')
-        self.assertEqual(result[0]['hash'], 'hash1')
+        self.assertEqual(result[0]["filename"], "test1.py")
+        self.assertEqual(result[0]["content"], "# Content of test1.py")
+        self.assertEqual(result[0]["hash"], "hash1")
 
-    @patch('model_sentinel.target.hf.HfApi')
+    @patch("model_sentinel.target.hf.HfApi")
     def test_get_files_for_verification_exception(self, mock_hf_api):
         """Test get_files_for_verification when exception occurs."""
         mock_api = Mock()
@@ -238,8 +273,10 @@ class TestTargetHF(unittest.TestCase):
         # Mock API exception
         mock_api.model_info.side_effect = Exception("API error")
 
-        with patch('builtins.print'):
-            result = self.target.get_files_for_verification(self.test_repo_id, self.test_revision)
+        with patch("builtins.print"):
+            result = self.target.get_files_for_verification(
+                self.test_repo_id, self.test_revision
+            )
 
         self.assertEqual(result, [])
 
@@ -252,20 +289,22 @@ class TestVerifyHFModel(unittest.TestCase):
         self.test_repo_id = "test/repo"
         self.test_revision = "main"
 
-    @patch('model_sentinel.target.hf.TargetHF')
+    @patch("model_sentinel.target.hf.TargetHF")
     def test_verify_hf_model_no_changes(self, mock_target_class):
         """Test verify_hf_model when no changes are detected."""
         mock_target = Mock()
         mock_target_class.return_value = mock_target
         mock_target.detect_model_changes.return_value = None
 
-        with patch('builtins.print'):
+        with patch("builtins.print"):
             result = verify_hf_model(self.test_repo_id, self.test_revision)
 
         self.assertTrue(result)
-        mock_target.detect_model_changes.assert_called_once_with(self.test_repo_id, revision=self.test_revision)
+        mock_target.detect_model_changes.assert_called_once_with(
+            self.test_repo_id, revision=self.test_revision
+        )
 
-    @patch('model_sentinel.target.hf.TargetHF')
+    @patch("model_sentinel.target.hf.TargetHF")
     def test_verify_hf_model_cli_success(self, mock_target_class):
         """Test verify_hf_model CLI mode with successful verification."""
         mock_target = Mock()
@@ -273,14 +312,18 @@ class TestVerifyHFModel(unittest.TestCase):
         mock_target.detect_model_changes.return_value = "new_hash"
         mock_target.verify_remote_files.return_value = True
 
-        with patch('builtins.print'):
+        with patch("builtins.print"):
             result = verify_hf_model(self.test_repo_id, self.test_revision, gui=False)
 
         self.assertTrue(result)
-        mock_target.verify_remote_files.assert_called_once_with(self.test_repo_id, revision=self.test_revision)
-        mock_target.update_model_hash_for_repo.assert_called_once_with(self.test_repo_id, self.test_revision, "new_hash")
+        mock_target.verify_remote_files.assert_called_once_with(
+            self.test_repo_id, revision=self.test_revision
+        )
+        mock_target.update_model_hash_for_repo.assert_called_once_with(
+            self.test_repo_id, self.test_revision, "new_hash"
+        )
 
-    @patch('model_sentinel.target.hf.TargetHF')
+    @patch("model_sentinel.target.hf.TargetHF")
     def test_verify_hf_model_cli_failure_no_exit(self, mock_target_class):
         """Test verify_hf_model CLI mode with verification failure and no exit."""
         mock_target = Mock()
@@ -288,12 +331,14 @@ class TestVerifyHFModel(unittest.TestCase):
         mock_target.detect_model_changes.return_value = "new_hash"
         mock_target.verify_remote_files.return_value = False
 
-        with patch('builtins.print'):
-            result = verify_hf_model(self.test_repo_id, self.test_revision, gui=False, exit_on_reject=False)
+        with patch("builtins.print"):
+            result = verify_hf_model(
+                self.test_repo_id, self.test_revision, gui=False, exit_on_reject=False
+            )
 
         self.assertFalse(result)
 
-    @patch('model_sentinel.target.hf.TargetHF')
+    @patch("model_sentinel.target.hf.TargetHF")
     def test_verify_hf_model_gui_import_error(self, mock_target_class):
         """Test verify_hf_model GUI mode when gradio is not available."""
         mock_target = Mock()
@@ -301,51 +346,73 @@ class TestVerifyHFModel(unittest.TestCase):
         mock_target.detect_model_changes.return_value = "new_hash"
         mock_target.handle_gui_verification.return_value = False
 
-        with patch('builtins.print'):
-            result = verify_hf_model(self.test_repo_id, self.test_revision, gui=True, exit_on_reject=False)
+        with patch("builtins.print"):
+            result = verify_hf_model(
+                self.test_repo_id, self.test_revision, gui=True, exit_on_reject=False
+            )
 
-        mock_target.handle_gui_verification.assert_called_once_with(repo_id=self.test_repo_id, revision=self.test_revision)
+        mock_target.handle_gui_verification.assert_called_once_with(
+            repo_id=self.test_repo_id, revision=self.test_revision
+        )
         self.assertFalse(result)
 
-    @patch('model_sentinel.target.hf.TargetHF')
-    def test_verify_hf_model_gui_closed_with_exit_on_reject_true(self, mock_target_class):
+    @patch("model_sentinel.target.hf.TargetHF")
+    def test_verify_hf_model_gui_closed_with_exit_on_reject_true(
+        self, mock_target_class
+    ):
         """Test verify_hf_model GUI mode when GUI is closed with exit_on_reject=True."""
         mock_target = Mock()
         mock_target_class.return_value = mock_target
         mock_target.detect_model_changes.return_value = "new_hash"
         mock_target.handle_gui_verification.return_value = False
 
-        with patch('builtins.print'):
-            with patch('builtins.exit') as mock_exit:
-                result = verify_hf_model(self.test_repo_id, revision=self.test_revision, gui=True, exit_on_reject=True)
+        with patch("builtins.print"):
+            with patch("builtins.exit") as mock_exit:
+                result = verify_hf_model(
+                    self.test_repo_id,
+                    revision=self.test_revision,
+                    gui=True,
+                    exit_on_reject=True,
+                )
 
         # Verify GUI handler was called
-        mock_target.handle_gui_verification.assert_called_once_with(repo_id=self.test_repo_id, revision=self.test_revision)
+        mock_target.handle_gui_verification.assert_called_once_with(
+            repo_id=self.test_repo_id, revision=self.test_revision
+        )
 
         # exit() should be called when exit_on_reject=True and verification fails
         mock_exit.assert_called_once_with(1)
         self.assertFalse(result)
 
-    @patch('model_sentinel.target.hf.TargetHF')
-    def test_verify_hf_model_gui_closed_with_exit_on_reject_false(self, mock_target_class):
+    @patch("model_sentinel.target.hf.TargetHF")
+    def test_verify_hf_model_gui_closed_with_exit_on_reject_false(
+        self, mock_target_class
+    ):
         """Test verify_hf_model GUI mode when GUI is closed with exit_on_reject=False."""
         mock_target = Mock()
         mock_target_class.return_value = mock_target
         mock_target.detect_model_changes.return_value = "new_hash"
         mock_target.handle_gui_verification.return_value = False
 
-        with patch('builtins.print'):
-            with patch('builtins.exit') as mock_exit:
-                result = verify_hf_model(self.test_repo_id, self.test_revision, gui=True, exit_on_reject=False)
+        with patch("builtins.print"):
+            with patch("builtins.exit") as mock_exit:
+                result = verify_hf_model(
+                    self.test_repo_id,
+                    self.test_revision,
+                    gui=True,
+                    exit_on_reject=False,
+                )
 
         # Verify GUI handler was called
-        mock_target.handle_gui_verification.assert_called_once_with(repo_id=self.test_repo_id, revision=self.test_revision)
+        mock_target.handle_gui_verification.assert_called_once_with(
+            repo_id=self.test_repo_id, revision=self.test_revision
+        )
 
         # exit() should NOT be called when exit_on_reject=False
         mock_exit.assert_not_called()
         self.assertFalse(result)
 
-    @patch('model_sentinel.target.hf.TargetHF')
+    @patch("model_sentinel.target.hf.TargetHF")
     def test_verify_hf_model_gui_success(self, mock_target_class):
         """Test verify_hf_model GUI mode with successful verification."""
         mock_target = Mock()
@@ -353,13 +420,17 @@ class TestVerifyHFModel(unittest.TestCase):
         mock_target.detect_model_changes.return_value = "new_hash"
         mock_target.handle_gui_verification.return_value = True
 
-        with patch('builtins.print'):
-            result = verify_hf_model(self.test_repo_id, self.test_revision, gui=True, exit_on_reject=False)
+        with patch("builtins.print"):
+            result = verify_hf_model(
+                self.test_repo_id, self.test_revision, gui=True, exit_on_reject=False
+            )
 
         # Verify GUI handler was called
-        mock_target.handle_gui_verification.assert_called_once_with(repo_id=self.test_repo_id, revision=self.test_revision)
+        mock_target.handle_gui_verification.assert_called_once_with(
+            repo_id=self.test_repo_id, revision=self.test_revision
+        )
         self.assertTrue(result)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

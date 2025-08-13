@@ -118,7 +118,9 @@ class TargetBase:
                 # Not changed in storage; skip session record
                 continue
 
-            file_verified = self.verify.verify_file(filename, file_hash, content, model_dir)
+            file_verified = self.verify.verify_file(
+                filename, file_hash, content, model_dir
+            )
             session.append(
                 {
                     "filename": filename,
@@ -150,7 +152,7 @@ class TargetBase:
         Returns:
             Path to model directory
         """
-        model_type, model_id = model_key.split('/', 1)
+        model_type, model_id = model_key.split("/", 1)
 
         if model_type == "local":
             if model_path:
@@ -163,10 +165,10 @@ class TargetBase:
                 # Use existing directory name
                 return self.storage.local_dir / model_id
         elif model_type == "hf":
-            if '@' in model_id:
-                repo_id, revision = model_id.rsplit('@', 1)
+            if "@" in model_id:
+                repo_id, revision = model_id.rsplit("@", 1)
             else:
-                repo_id, revision = model_id, 'main'
+                repo_id, revision = model_id, "main"
             return self.storage.get_hf_model_dir(repo_id, revision)
         else:
             raise ValueError(f"Unknown model type: {model_type}")
@@ -202,20 +204,26 @@ class TargetBase:
         """Update model hash using directory system."""
         self.verify.update_model_hash(model_dir, new_hash)
 
-    def register_model_in_registry(self, model_type: str, model_id: str, original_path: str = None):
+    def register_model_in_registry(
+        self, model_type: str, model_id: str, original_path: str = None
+    ):
         """Register model in the global registry."""
         kwargs = {}
         if original_path:
             kwargs["original_path"] = original_path
         self.storage.register_model(model_type, model_id, **kwargs)
 
-    def handle_gui_verification(self, repo_id: str = None, revision: str = None, model_dir: str = None) -> bool:
+    def handle_gui_verification(
+        self, repo_id: str = None, revision: str = None, model_dir: str = None
+    ) -> bool:
         """Handle GUI-based verification."""
         try:
             from model_sentinel.gui.main import launch_verification_gui
 
             print("Changes detected. Launching GUI for verification...")
-            return launch_verification_gui(repo_id=repo_id, revision=revision, model_dir=model_dir)
+            return launch_verification_gui(
+                repo_id=repo_id, revision=revision, model_dir=model_dir
+            )
         except ImportError:
             print("GUI functionality requires gradio. Install with:")
             print("pip install 'model-sentinel[gui]'")

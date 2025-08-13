@@ -22,7 +22,9 @@ from .components import (
 )
 
 
-def _build_launch_kwargs(host: Optional[str] = None, port: Optional[int] = None) -> Dict[str, Any]:
+def _build_launch_kwargs(
+    host: Optional[str] = None, port: Optional[int] = None
+) -> Dict[str, Any]:
     """Build launch kwargs for Gradio based on host and port settings."""
     kwargs = {}
     if host is not None:
@@ -37,7 +39,7 @@ def launch_verification_gui(
     model_dir: str = None,
     revision: str = "main",
     host: str = None,
-    port: int = None
+    port: int = None,
 ) -> bool:
     """
     Launch GUI for model verification and wait for user interaction.
@@ -74,29 +76,19 @@ def launch_verification_gui(
         # No model specified, launch simple interface
         demo = create_simple_interface()
         launch_kwargs = _build_launch_kwargs(host, port)
-        demo.launch(
-            share=False,
-            inbrowser=True,
-            **launch_kwargs
-        )
+        demo.launch(share=False, inbrowser=True, **launch_kwargs)
         return False
 
 
 def _launch_gui_with_result(
-    result: Dict[str, Any],
-    model_type: str,
-    host: str = None,
-    port: int = None
+    result: Dict[str, Any], model_type: str, host: str = None, port: int = None
 ) -> bool:
     """Launch GUI with verification result and wait for completion."""
     import threading
     import time
 
     # Initialize GUI state
-    gui_state = {
-        "verification_result": None,
-        "completion_requested": False
-    }
+    gui_state = {"verification_result": None, "completion_requested": False}
 
     files_to_verify = []
     if result.get("model_hash_changed") and result.get("files_info"):
@@ -118,10 +110,7 @@ def _launch_gui_with_result(
         launch_kwargs = _build_launch_kwargs(host, port)
 
         demo.launch(
-            share=False,
-            inbrowser=True,
-            prevent_thread_lock=True,
-            **launch_kwargs
+            share=False, inbrowser=True, prevent_thread_lock=True, **launch_kwargs
         )
         print("No files to verify. Displaying result for 5 seconds...")
         time.sleep(5)
@@ -144,12 +133,7 @@ def _launch_gui_with_result(
     # Launch demo
     launch_kwargs = _build_launch_kwargs(host, port)
 
-    demo.launch(
-        share=False,
-        inbrowser=True,
-        prevent_thread_lock=True,
-        **launch_kwargs
-    )
+    demo.launch(share=False, inbrowser=True, prevent_thread_lock=True, **launch_kwargs)
 
     # Start background completion monitoring
     monitor_thread = threading.Thread(target=monitor_completion, daemon=True)
@@ -163,13 +147,17 @@ def _launch_gui_with_result(
     monitor_thread.join(timeout=5)
 
     # Return the verification result
-    return gui_state["verification_result"] if gui_state["verification_result"] is not None else False
+    return (
+        gui_state["verification_result"]
+        if gui_state["verification_result"] is not None
+        else False
+    )
 
 
 def create_verification_gui(
     verification_result: Dict[str, Any],
     files_to_verify: List[Dict[str, Any]] = None,
-    gui_state: Dict[str, Any] = None
+    gui_state: Dict[str, Any] = None,
 ) -> gr.Blocks:
     """Create GUI for verification with blocking behavior."""
 
@@ -183,7 +171,9 @@ def create_verification_gui(
 
         # File verification section
         if files_to_verify and len(files_to_verify) > 0:
-            create_file_verification_interface(files_to_verify, verification_result, gui_state)
+            create_file_verification_interface(
+                files_to_verify, verification_result, gui_state
+            )
         else:
             create_no_files_section(verification_result)
 

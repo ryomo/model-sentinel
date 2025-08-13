@@ -116,11 +116,7 @@ class StorageManager:
         """
         metadata_file = model_dir / "metadata.json"
         if not metadata_file.exists():
-            return {
-                "model_hash": None,
-                "last_verified": None,
-                "approved_files": []
-            }
+            return {"model_hash": None, "last_verified": None, "approved_files": []}
 
         with open(metadata_file, "r", encoding="utf-8") as f:
             return json.load(f)
@@ -228,7 +224,7 @@ class StorageManager:
             "type": model_type,
             "last_verified": self.get_current_timestamp(),
             "status": "verified",
-            **kwargs
+            **kwargs,
         }
 
         registry["models"][model_key] = model_info

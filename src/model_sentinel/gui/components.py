@@ -14,7 +14,7 @@ except ImportError:
         "Install it with: pip install 'model-sentinel[gui]'"
     )
 
-from .utils import format_status, STATUS_PENDING
+from .utils import format_status
 
 
 def create_verification_summary(verification_result: Dict[str, Any]) -> None:
@@ -41,54 +41,6 @@ def create_verification_summary(verification_result: Dict[str, Any]) -> None:
         gr.Markdown("**Model Hash:** ✅ Unchanged")
 
 
-def create_file_verification_interface(
-    files_to_verify: List[Dict[str, Any]],
-    verification_result: Dict[str, Any],
-    gui_state: Dict[str, Any]
-) -> List[gr.Checkbox]:
-    """Create the file verification interface with blocking completion."""
-    gr.Markdown("## � Files Requiring Verification")
-    gr.Markdown("Please review the following files and approve if they are safe:")
-
-    # Create checkboxes for each file and display content
-    file_checkboxes = []
-
-    for i, file_info in enumerate(files_to_verify):
-        filename = file_info.get("filename", f"File {i+1}")
-        content = file_info.get("content", "No content available")
-
-        with gr.Row():
-            with gr.Column(scale=1):
-                checkbox = gr.Checkbox(
-                    label=f"Approve {filename}",
-                    value=False,
-                    elem_id=f"checkbox_{i}"
-                )
-                file_checkboxes.append(checkbox)
-
-        with gr.Row():
-            with gr.Column():
-                gr.Markdown(f"**File:** {filename}")
-                if "hash" in file_info:
-                    hash_short = file_info["hash"][:16] + "..."
-                    gr.Markdown(f"**Hash:** `{hash_short}`")
-
-                gr.Code(
-                    value=content,
-                    language="python",
-                    label=f"Content of {filename}",
-                    lines=10
-                )
-        gr.Markdown("---")
-
-    # Final approval section
-    create_final_verification_interface(
-        verification_result, files_to_verify, file_checkboxes, gui_state
-    )
-
-    return file_checkboxes
-
-
 def create_no_files_section(verification_result: Dict[str, Any]) -> None:
     """Create section when no files need verification."""
     if verification_result.get("files_verified"):
@@ -111,7 +63,7 @@ def create_simple_interface() -> gr.Blocks:
 def create_file_verification_interface(
     files_to_verify: List[Dict[str, Any]],
     verification_result: Dict[str, Any],
-    gui_state: Dict[str, Any]
+    gui_state: Dict[str, Any],
 ) -> List[gr.Checkbox]:
     """Create the file verification interface with blocking completion."""
     gr.Markdown("## 📝 Files Requiring Verification")
@@ -121,15 +73,13 @@ def create_file_verification_interface(
     file_checkboxes = []
 
     for i, file_info in enumerate(files_to_verify):
-        filename = file_info.get("filename", f"File {i+1}")
+        filename = file_info.get("filename", f"File {i + 1}")
         content = file_info.get("content", "No content available")
 
         with gr.Row():
             with gr.Column(scale=1):
                 checkbox = gr.Checkbox(
-                    label=f"Approve {filename}",
-                    value=False,
-                    elem_id=f"checkbox_{i}"
+                    label=f"Approve {filename}", value=False, elem_id=f"checkbox_{i}"
                 )
                 file_checkboxes.append(checkbox)
 
@@ -144,7 +94,7 @@ def create_file_verification_interface(
                     value=content,
                     language="python",
                     label=f"Content of {filename}",
-                    lines=10
+                    lines=10,
                 )
         gr.Markdown("---")
 
@@ -160,7 +110,7 @@ def create_final_verification_interface(
     verification_result: Dict[str, Any],
     files_to_verify: List[Dict[str, Any]],
     file_checkboxes: List[gr.Checkbox],
-    gui_state: Dict[str, Any]
+    gui_state: Dict[str, Any],
 ) -> None:
     """Create final verification section with checkbox-based completion."""
     gr.Markdown("## 🚀 Final Verification")
@@ -199,13 +149,18 @@ def create_final_verification_interface(
                         "filename": fname,
                         "hash": fi.get("hash", ""),
                         "content": fi.get("content", ""),
-                        "approved": (i < len(checkbox_values)) and bool(checkbox_values[i]),
+                        "approved": (i < len(checkbox_values))
+                        and bool(checkbox_values[i]),
                     }
                 )
 
-            model_dir = verify._resolve_model_dir(verification_result=verification_result)
+            model_dir = verify._resolve_model_dir(
+                verification_result=verification_result
+            )
             # Only write here when not all approved OR when no files approved; success path will call save_verification_results()
-            if model_dir is not None and (len(approved_files) != total_files or total_files == 0):
+            if model_dir is not None and (
+                len(approved_files) != total_files or total_files == 0
+            ):
                 verify.save_run_metadata(model_dir, session_files)
         except Exception as e:
             # Do not break GUI on metadata write issues
@@ -252,5 +207,5 @@ def create_final_verification_interface(
     final_approve_btn.click(
         complete_verification_simple,
         inputs=file_checkboxes,
-        outputs=[final_status, close_browser_html]
+        outputs=[final_status, close_browser_html],
     )

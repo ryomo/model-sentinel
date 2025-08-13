@@ -1,11 +1,11 @@
 """
 Tests for model_sentinel.target.base module.
 """
+
 import hashlib
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import Mock, patch
 
 from model_sentinel.target.base import TargetBase, VERIFICATION_FAILED_MESSAGE
 
@@ -18,7 +18,9 @@ class TestTargetBase(unittest.TestCase):
         self.target = TargetBase()
         self.temp_dir = Path(tempfile.mkdtemp())
         # Route storage to temp dir to avoid polluting repo
-        self.target.storage = self.target.storage.__class__(self.temp_dir / ".model-sentinel")
+        self.target.storage = self.target.storage.__class__(
+            self.temp_dir / ".model-sentinel"
+        )
 
         # Create test files
         self.test_py_file = self.temp_dir / "test.py"
@@ -134,7 +136,7 @@ class TestTargetBase(unittest.TestCase):
         """Test that verification failed message constant is defined."""
         self.assertEqual(
             VERIFICATION_FAILED_MESSAGE,
-            "Model verification failed. Exiting for security reasons."
+            "Model verification failed. Exiting for security reasons.",
         )
 
     def test_calculate_file_hash_nonexistent_file(self):
@@ -164,5 +166,5 @@ class TestTargetBase(unittest.TestCase):
         self.assertEqual(result_hash, expected_hash)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

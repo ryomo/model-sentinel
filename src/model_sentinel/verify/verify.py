@@ -52,12 +52,14 @@ class Verify:
                 replaced = True
                 break
         if not replaced:
-            approved.append({
-                "path": filename,
-                "hash": file_hash,
-                "size": size,
-                "verified_at": ts,
-            })
+            approved.append(
+                {
+                    "path": filename,
+                    "hash": file_hash,
+                    "size": size,
+                    "verified_at": ts,
+                }
+            )
         metadata["approved_files"] = approved
         metadata["last_verified"] = ts
         self.storage.save_metadata(model_dir, metadata)
@@ -184,11 +186,13 @@ class Verify:
         """Resolve model directory from verification result or model info."""
         if verification_result:
             if verification_result.get("target_type") == "local":
-                return self.storage.get_local_model_dir(Path(verification_result["model_dir"]))
+                return self.storage.get_local_model_dir(
+                    Path(verification_result["model_dir"])
+                )
             else:
                 return self.storage.get_hf_model_dir(
                     verification_result["repo_id"],
-                    verification_result.get("revision", "main")
+                    verification_result.get("revision", "main"),
                 )
 
         elif model_key and model_info:
@@ -197,7 +201,11 @@ class Verify:
                 return self.storage.local_dir / model_key.split("/", 1)[1]
             elif model_type == "hf":
                 model_path = model_key.split("/", 1)[1]
-                repo_parts, revision = model_path.rsplit("@", 1) if "@" in model_path else (model_path, "main")
+                repo_parts, revision = (
+                    model_path.rsplit("@", 1)
+                    if "@" in model_path
+                    else (model_path, "main")
+                )
                 return self.storage.get_hf_model_dir(repo_parts, revision)
 
         return None
@@ -209,7 +217,9 @@ class Verify:
         if files_list:
             print("  Verified Files:")
             for item in files_list:
-                print(f"    - {item.get('path', 'unknown')}: {item.get('hash', 'unknown')}")
+                print(
+                    f"    - {item.get('path', 'unknown')}: {item.get('hash', 'unknown')}"
+                )
         else:
             print(FILES_NONE_VERIFIED)
 
@@ -284,7 +294,9 @@ class Verify:
             pass
         return "unknown", str(model_dir)
 
-    def save_run_metadata(self, model_dir: Path, session_files: list[dict[str, Any]]) -> None:
+    def save_run_metadata(
+        self, model_dir: Path, session_files: list[dict[str, Any]]
+    ) -> None:
         """Persist metadata.json for this verification run.
 
         session_files: list of {filename, hash, content, approved(bool)}
@@ -294,6 +306,7 @@ class Verify:
             validate_session_files(session_files)  # type: ignore[arg-type]
         except Exception as e:  # noqa: BLE001
             print(f"[warn] session validation skipped: {e}")
+
         # Resolve tool version without creating circular imports
         def _resolve_tool_version() -> str:
             try:
@@ -306,9 +319,11 @@ class Verify:
             except Exception:
                 try:
                     from model_sentinel import __version__ as v  # type: ignore
+
                     return v
                 except Exception:
                     return "unknown"
+
         # Load existing metadata (support old/new)
         existing = self.storage.load_metadata(model_dir)
 
@@ -368,11 +383,19 @@ class Verify:
 
     def get_model_key_from_result(self, verification_result: dict) -> str:
         """Get model key from verification result."""
-        if verification_result.get("target_type") == "hf" or "repo_id" in verification_result:
+        if (
+            verification_result.get("target_type") == "hf"
+            or "repo_id" in verification_result
+        ):
             model_id = f"{verification_result['repo_id']}@{verification_result.get('revision', 'main')}"
             return self.storage.get_model_key("hf", model_id)
-        elif verification_result.get("target_type") == "local" or "model_dir" in verification_result:
-            model_id = self.storage.generate_local_model_dir_name(Path(verification_result["model_dir"]))
+        elif (
+            verification_result.get("target_type") == "local"
+            or "model_dir" in verification_result
+        ):
+            model_id = self.storage.generate_local_model_dir_name(
+                Path(verification_result["model_dir"])
+            )
             return self.storage.get_model_key("local", model_id)
         else:
             raise ValueError("Unable to determine model type")
@@ -418,7 +441,9 @@ class Verify:
             )
 
             # Also write metadata report for this session using same model_dir
-            self.write_session_metadata(verification_result, approved_files, model_dir=model_dir)
+            self.write_session_metadata(
+                verification_result, approved_files, model_dir=model_dir
+            )
 
             # Register model in registry
             model_type, model_id = model_key.split("/", 1)

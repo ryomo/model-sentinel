@@ -1,4 +1,5 @@
 """Custom exceptions for verification domain (lightweight, no external deps)."""
+
 from __future__ import annotations
 
 

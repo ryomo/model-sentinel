@@ -1,12 +1,12 @@
 """
 Tests for model_sentinel.verify.verify module.
 """
-import json
+
 import tempfile
 import unittest
 import shutil
 from pathlib import Path
-from unittest.mock import Mock, patch, mock_open
+from unittest.mock import Mock, patch
 
 from model_sentinel.verify.verify import Verify
 from model_sentinel.verify.storage import StorageManager
@@ -48,31 +48,35 @@ class TestVerify(unittest.TestCase):
                 "test.py": {
                     "hash": "file_hash",
                     "size": 100,
-                    "verified_at": "2025-07-28T00:00:00Z"
+                    "verified_at": "2025-07-28T00:00:00Z",
                 }
-            }
+            },
         }
 
         self.verify.storage.save_metadata(model_dir, test_metadata)
         loaded_metadata = self.verify.storage.load_metadata(model_dir)
         self.assertEqual(loaded_metadata["model_hash"], "test_hash")
 
-    @patch('pydoc.pager')
+    @patch("pydoc.pager")
     def test_verify_file_user_responses(self, mock_pager):
         """Test verify_file with various user responses."""
         test_cases = [
-            ('y', True, "single 'y' confirmation"),
-            ('yes', True, "full 'yes' confirmation"),
-            ('n', False, "single 'n' rejection"),
-            ('no', False, "full 'no' rejection"),
+            ("y", True, "single 'y' confirmation"),
+            ("yes", True, "full 'yes' confirmation"),
+            ("n", False, "single 'n' rejection"),
+            ("no", False, "full 'no' rejection"),
         ]
 
         model_dir = self.temp_dir / "test_model"
 
         for user_input, expected_result, description in test_cases:
-            with self.subTest(input=user_input, expected=expected_result, desc=description):
-                with patch('builtins.input', return_value=user_input):
-                    result = self.verify.verify_file("test_file.py", "hash123", "test content", model_dir)
+            with self.subTest(
+                input=user_input, expected=expected_result, desc=description
+            ):
+                with patch("builtins.input", return_value=user_input):
+                    result = self.verify.verify_file(
+                        "test_file.py", "hash123", "test content", model_dir
+                    )
 
                     if expected_result:
                         self.assertTrue(result, f"Expected True for {description}")
@@ -101,13 +105,13 @@ class TestVerify(unittest.TestCase):
 
         self.assertTrue(result)  # Should still return True
 
-    @patch('builtins.print')
+    @patch("builtins.print")
     def test_list_verified_hashes_empty(self, mock_print):
         """Test listing verified hashes when none exist."""
         self.verify.list_verified_hashes()
         mock_print.assert_called_with("No verified models found.")
 
-    @patch('builtins.print')
+    @patch("builtins.print")
     def test_list_verified_hashes_with_data(self, mock_print):
         """Test listing verified hashes with data."""
         # Create test model data in storage system
@@ -119,8 +123,8 @@ class TestVerify(unittest.TestCase):
             "last_verified": "2025-07-28T00:00:00Z",
             "files": {
                 "test1.py": {"hash": "hash1", "size": 100},
-                "test2.py": {"hash": "hash2", "size": 200}
-            }
+                "test2.py": {"hash": "hash2", "size": 200},
+            },
         }
         self.verify.storage.save_metadata(test_model_dir, test_metadata)
 
@@ -149,7 +153,7 @@ class TestVerifyBusinessLogic(unittest.TestCase):
         if self.temp_dir.exists():
             shutil.rmtree(self.temp_dir)
 
-    @patch('model_sentinel.target.hf.TargetHF')
+    @patch("model_sentinel.target.hf.TargetHF")
     def test_verify_hf_model_no_changes(self, mock_target_hf_class):
         """Test verify_hf_model when no changes are detected."""
         # Setup mock
@@ -173,14 +177,11 @@ class TestVerifyBusinessLogic(unittest.TestCase):
             "files_verified": True,
             "message": "No changes detected in the model hash.",
             "files_info": [],
-            "display_info": [
-                "**Repository:** test/model",
-                "**Revision:** main"
-            ]
+            "display_info": ["**Repository:** test/model", "**Revision:** main"],
         }
         self.assertEqual(result, expected_result)
 
-    @patch('model_sentinel.target.hf.TargetHF')
+    @patch("model_sentinel.target.hf.TargetHF")
     def test_verify_hf_model_with_changes(self, mock_target_hf_class):
         """Test verify_hf_model when changes are detected."""
         # Setup mock
@@ -188,7 +189,11 @@ class TestVerifyBusinessLogic(unittest.TestCase):
         mock_target_hf_class.return_value = mock_target
         mock_target.detect_model_changes.return_value = "new_hash_123"
         mock_target.get_files_for_verification.return_value = [
-            {"filename": "modeling.py", "hash": "file_hash", "content": "# Test content"}
+            {
+                "filename": "modeling.py",
+                "hash": "file_hash",
+                "content": "# Test content",
+            }
         ]
 
         verify = Verify()
@@ -196,7 +201,9 @@ class TestVerifyBusinessLogic(unittest.TestCase):
 
         # Assertions
         mock_target.detect_model_changes.assert_called_once_with("test/model", "main")
-        mock_target.get_files_for_verification.assert_called_once_with("test/model", "main")
+        mock_target.get_files_for_verification.assert_called_once_with(
+            "test/model", "main"
+        )
 
         expected_result = {
             "target_type": "hf",
@@ -208,12 +215,13 @@ class TestVerifyBusinessLogic(unittest.TestCase):
             "files_verified": False,
             "message": "Found 1 files that need verification.",
             "files_info": [
-                {"filename": "modeling.py", "hash": "file_hash", "content": "# Test content"}
+                {
+                    "filename": "modeling.py",
+                    "hash": "file_hash",
+                    "content": "# Test content",
+                }
             ],
-            "display_info": [
-                "**Repository:** test/model",
-                "**Revision:** main"
-            ]
+            "display_info": ["**Repository:** test/model", "**Revision:** main"],
         }
         self.assertEqual(result, expected_result)
 
@@ -228,7 +236,7 @@ class TestVerifyBusinessLogic(unittest.TestCase):
 
         self.assertIn("does not exist", str(context.exception))
 
-    @patch('model_sentinel.target.local.TargetLocal')
+    @patch("model_sentinel.target.local.TargetLocal")
     def test_verify_local_model_success(self, mock_target_local_class):
         """Test verify_local_model with successful operation."""
         # Create temporary model directory
@@ -240,7 +248,11 @@ class TestVerifyBusinessLogic(unittest.TestCase):
         mock_target_local_class.return_value = mock_target
         mock_target.detect_model_changes.return_value = "local_hash_456"
         mock_target.get_files_for_verification.return_value = [
-            {"filename": "script.py", "hash": "script_hash", "content": "# Script content"}
+            {
+                "filename": "script.py",
+                "hash": "script_hash",
+                "content": "# Script content",
+            }
         ]
 
         verify = Verify()
@@ -259,11 +271,13 @@ class TestVerifyBusinessLogic(unittest.TestCase):
             "files_verified": False,
             "message": "Found 1 files that need verification.",
             "files_info": [
-                {"filename": "script.py", "hash": "script_hash", "content": "# Script content"}
+                {
+                    "filename": "script.py",
+                    "hash": "script_hash",
+                    "content": "# Script content",
+                }
             ],
-            "display_info": [
-                f"**Model Directory:** {model_dir}"
-            ]
+            "display_info": [f"**Model Directory:** {model_dir}"],
         }
         self.assertEqual(result, expected_result)
 
@@ -272,7 +286,7 @@ class TestVerifyBusinessLogic(unittest.TestCase):
         verify = Verify()
         verification_result = {
             "model_hash_changed": False,
-            "message": "No changes detected"
+            "message": "No changes detected",
         }
         approved_files = []
 
@@ -307,8 +321,12 @@ class TestVerifyBusinessLogic(unittest.TestCase):
             "revision": "main",
             "new_model_hash": "abc123",
             "files_info": [
-                {"filename": "modeling.py", "hash": "def456", "content": "# Test content"}
-            ]
+                {
+                    "filename": "modeling.py",
+                    "hash": "def456",
+                    "content": "# Test content",
+                }
+            ],
         }
         approved_files = ["modeling.py"]
 
@@ -324,7 +342,9 @@ class TestVerifyBusinessLogic(unittest.TestCase):
         )
         verify.storage.register_model.assert_called_once_with("hf", "test/model@main")
 
-        self.assertEqual(result, "✅ Verification completed! 1 files approved and saved.")
+        self.assertEqual(
+            result, "✅ Verification completed! 1 files approved and saved."
+        )
 
     @patch("model_sentinel.verify.storage.datetime")
     def test_save_verification_results_local_success(self, mock_datetime):
@@ -352,8 +372,12 @@ class TestVerifyBusinessLogic(unittest.TestCase):
             "model_dir": "/path/to/model",
             "new_model_hash": "xyz999",
             "files_info": [
-                {"filename": "script.py", "hash": "abc123", "content": "# Script content"}
-            ]
+                {
+                    "filename": "script.py",
+                    "hash": "abc123",
+                    "content": "# Script content",
+                }
+            ],
         }
         approved_files = ["script.py"]
 
@@ -362,14 +386,20 @@ class TestVerifyBusinessLogic(unittest.TestCase):
 
         # Assertions
         verify.get_model_key_from_result.assert_called_once_with(verification_result)
-        verify.storage.get_local_model_dir.assert_called_once_with(Path("/path/to/model"))
+        verify.storage.get_local_model_dir.assert_called_once_with(
+            Path("/path/to/model")
+        )
         verify.update_model_hash.assert_called_once_with(mock_model_dir, "xyz999")
         verify.storage.save_file_content.assert_called_once_with(
             mock_model_dir, "script.py", "# Script content"
         )
-        verify.storage.register_model.assert_called_once_with("local", "test_model_hash", original_path="/path/to/model")
+        verify.storage.register_model.assert_called_once_with(
+            "local", "test_model_hash", original_path="/path/to/model"
+        )
 
-        self.assertEqual(result, "✅ Verification completed! 1 files approved and saved.")
+        self.assertEqual(
+            result, "✅ Verification completed! 1 files approved and saved."
+        )
 
     def test_save_verification_results_error_handling(self):
         """Test save_verification_results error handling."""
@@ -378,10 +408,7 @@ class TestVerifyBusinessLogic(unittest.TestCase):
         # Mock get_model_key_from_result to raise exception
         verify.get_model_key_from_result = Mock(side_effect=Exception("Mock error"))
 
-        verification_result = {
-            "model_hash_changed": True,
-            "repo_id": "test/model"
-        }
+        verification_result = {"model_hash_changed": True, "repo_id": "test/model"}
         approved_files = ["test.py"]
 
         # Test function
@@ -405,7 +432,7 @@ class TestVerifyBusinessLogic(unittest.TestCase):
         initial_metadata = {
             "model_hash": "old_hash",
             "last_verified": "2025-08-04T12:00:00Z",
-            "approved_files": []
+            "approved_files": [],
         }
         verify.storage.load_metadata = Mock(return_value=initial_metadata)
         verify.storage.save_metadata = Mock()
@@ -416,13 +443,13 @@ class TestVerifyBusinessLogic(unittest.TestCase):
                 {
                     "filename": "approved.py",
                     "hash": "hash1",
-                    "content": "# Approved content"
+                    "content": "# Approved content",
                 },
                 {
                     "filename": "not_approved.py",
                     "hash": "hash2",
-                    "content": "# Not approved content"
-                }
+                    "content": "# Not approved content",
+                },
             ]
         }
         approved_files = ["approved.py"]
@@ -454,13 +481,13 @@ class TestVerifyBusinessLogic(unittest.TestCase):
                 {
                     "path": "approved.py",
                     "hash": "hash1",
-                    "size": len("# Approved content".encode('utf-8')),
-                    "verified_at": "2025-08-05T12:00:00Z"
+                    "size": len("# Approved content".encode("utf-8")),
+                    "verified_at": "2025-08-05T12:00:00Z",
                 }
-            ]
+            ],
         }
         self.assertEqual(saved_metadata, expected_metadata)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

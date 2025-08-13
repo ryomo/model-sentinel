@@ -23,7 +23,9 @@ class TargetLocal(TargetBase):
         print(f"Directory hash: {current_hash}")
 
         # Get directory for this model
-        model_dir_path = self.get_model_directory_path(f"local/{self.storage.generate_local_model_dir_name(model_dir)}", model_dir)
+        model_dir_path = self.get_model_directory_path(
+            f"local/{self.storage.generate_local_model_dir_name(model_dir)}", model_dir
+        )
 
         if not super().check_model_hash_changed(model_dir_path, current_hash):
             return None

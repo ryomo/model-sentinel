@@ -45,8 +45,12 @@ class TestMetadataBehavior(unittest.TestCase):
         self.verify.save_run_metadata(model_dir, session)
         meta = self.storage.load_metadata(model_dir)
         self.assertEqual(meta.get("overall_status"), "ng")
-        self.assertTrue(any(it.get("path") == "a.txt" for it in meta.get("approved_files", [])))
-        self.assertTrue(any(it.get("path") == "b.txt" for it in meta.get("approved_files", [])))
+        self.assertTrue(
+            any(it.get("path") == "a.txt" for it in meta.get("approved_files", []))
+        )
+        self.assertTrue(
+            any(it.get("path") == "b.txt" for it in meta.get("approved_files", []))
+        )
 
     def test_zero_file_session_sets_none_overall(self):
         model_dir = self._model_dir()

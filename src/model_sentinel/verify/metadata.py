@@ -1,10 +1,13 @@
 from __future__ import annotations
 
-from typing import Any, TypedDict, Iterable
+from typing import Any, Iterable, TypedDict
+
+from model_sentinel.verify.errors import ValidationError
 
 # ------------------
 # Type Definitions
 # ------------------
+
 
 class SessionFile(TypedDict, total=False):
     filename: str
@@ -130,7 +133,7 @@ def compute_run_metadata(
 # ------------------
 # Validation Helpers (lightweight)
 # ------------------
-from model_sentinel.verify.errors import ValidationError
+
 
 def validate_session_files(session_files: Iterable[SessionFile]) -> None:
     seen: set[str] = set()
@@ -143,6 +146,7 @@ def validate_session_files(session_files: Iterable[SessionFile]) -> None:
         seen.add(fname)
         if "approved" in sf and not isinstance(sf["approved"], bool):
             raise ValidationError(f"'approved' must be bool for {fname}")
+
 
 def validate_metadata_payload(meta: MetadataPayload) -> None:
     if meta.get("schema_version") != 1:

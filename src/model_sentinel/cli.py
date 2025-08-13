@@ -4,7 +4,6 @@ from model_sentinel import Verify, __version__, verify_hf_model, verify_local_mo
 
 
 def main():
-
     DEFAULT_REVISION = "main"
 
     parser = argparse.ArgumentParser(description="Model Sentinel CLI")
