@@ -12,5 +12,18 @@
         "test_*.py"
     ],
     "python.testing.unittestEnabled": true,
-    "python.testing.pytestEnabled": false
+    "python.testing.pytestEnabled": false,
+    "[python]": {
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "charliermarsh.ruff",
+        "editor.codeActionsOnSave": {
+            "source.fixAll": "explicit",
+            "source.organizeImports": "explicit"
+        },
+    },
+    "notebook.formatOnSave.enabled": true,
+        "notebook.codeActionsOnSave": {
+        "notebook.source.fixAll": "explicit",
+        "notebook.source.organizeImports": "explicit"
+    },
 }
