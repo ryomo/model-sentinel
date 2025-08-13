@@ -1,6 +1,24 @@
 # Model Sentinel Metadata Schema v1
 
-## Minimal example
+## Directory
+
+Verification data is stored in a structured `.model-sentinel/` directory.
+
+```file
+.model-sentinel/
+├── registry.json           # Global registry of verified models
+├── local/                  # Local models
+│   └── {model_name}_{hash}/   # Short hash of directory content ("*.py")
+│       ├── metadata.json   # Model metadata and file info
+│       ├── original_path.txt # Original model directory path (for local models)
+│       └── files/          # Individual file content
+└── hf/                     # HuggingFace models
+    └── {org}/{model}@{revision}/
+        ├── metadata.json
+        └── files/
+```
+
+## `metadata.json` example
 
 ```json
 {
@@ -8,14 +26,19 @@
   "run": {
     "run_id": "...",
     "timestamp": "2025-08-12T10:45:12.345Z",
-    "tool_version": "1.2.3",
-    "target": { "type": "hf", "id": "org/model@main" }
+    "tool_version": "0.3.0",
+    "target": {"type": "hf", "id": "org/model@main"}
   },
   "model_hash": "abc123...",
   "last_verified": "2025-08-12T10:45:12.345Z",
   "overall_status": "ok",
   "approved_files": [
-    { "path": "README.md", "size": 1024, "hash": "...", "verified_at": "2025-08-12T10:45:12.345Z" }
+    {
+      "path": "modeling.py",
+      "hash": "def456...",
+      "size": 1024,
+      "verified_at": "2025-08-12T10:45:12.345Z"
+    }
   ]
 }
 ```
@@ -36,10 +59,10 @@
 - `approved_files`: array of FileRecord (approved files only)
   - FileRecord:
     - `path`,
-    - `size`: string|null,
     - `hash`: string|null,
+    - `size`: number|null,
     - `verified_at`: string|null
 
-## Rules
+## Notes
 
 - Timestamps: Use ISO 8601 with timezone; prefer UTC (Z or +00:00).

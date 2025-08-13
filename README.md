@@ -104,46 +104,9 @@ else:
 
 ## Verification Data Directory
 
-Verification data is stored in a structured `.model-sentinel/` directory:
+Verification data is stored under `.model-sentinel/`.
 
-```file
-.model-sentinel/
-├── registry.json           # Global registry of verified models
-├── local/                  # Local models
-│   └── {model_name}_{content_hash8}/   # Short hash of directory content ("*.py") for portability
-│       ├── metadata.json   # Model metadata and file info
-│       ├── original_path.txt # Original model directory path (for local models)
-│       └── files/          # Individual file content
-└── hf/                     # HuggingFace models
-    └── {org}/{model}@{revision}/
-        ├── metadata.json
-        └── files/
-```
-
-Example `metadata.json`:
-
-```json
-{
-  "schema_version": 1,
-  "run": {
-    "run_id": "...",
-    "timestamp": "2025-07-28T10:30:00Z",
-    "tool_version": "0.3.0",
-    "target": {"type": "hf", "id": "org/model@main"}
-  },
-  "model_hash": "abc123...",
-  "last_verified": "2025-07-28T10:30:00Z",
-  "overall_status": "ok",
-  "approved_files": [
-    {
-      "path": "modeling.py",
-      "hash": "def456...",
-      "size": 1024,
-      "verified_at": "2025-07-28T10:30:00Z"
-    }
-  ]
-}
-```
+For the full directory layout and a complete `metadata.json` example, see the spec document: [docs/specs/metadata_v1.md](docs/specs/metadata_v1.md)
 
 ## Development
 
