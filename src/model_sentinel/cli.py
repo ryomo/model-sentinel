@@ -1,6 +1,7 @@
 import argparse
 
-from model_sentinel import Verify, __version__, verify_hf_model, verify_local_model
+from model_sentinel import __version__, verify_hf_model, verify_local_model
+from model_sentinel.verify.verify import Verify
 
 
 def main():
