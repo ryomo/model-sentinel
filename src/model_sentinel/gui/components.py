@@ -51,15 +51,6 @@ def create_no_files_section(verification_result: Dict[str, Any]) -> None:
         gr.Markdown("Some files could not be verified. Check the logs for details.")
 
 
-def create_simple_interface() -> gr.Blocks:
-    """Create simple interface when no model is specified."""
-    with gr.Blocks(title="Model Sentinel") as demo:
-        gr.Markdown("# 🛡️ Model Sentinel")
-        gr.Markdown("Please specify a model to verify.")
-        gr.Markdown("Use CLI: `model-sentinel --gui` or call with model parameters.")
-    return demo
-
-
 def create_file_verification_interface(
     files_to_verify: List[Dict[str, Any]],
     verification_result: Dict[str, Any],

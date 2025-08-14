@@ -174,8 +174,9 @@ def verify_hf_model(
         return True
 
     if gui:
-        result = target.handle_gui_verification(
-            repo_id=repo_id, revision=revision, host=host, port=port
+        print("Changes detected. Launching GUI for verification...")
+        result = _handle_gui_verification(
+            target, repo_id=repo_id, revision=revision, host=host, port=port
         )
     else:
         result = _handle_cli_verification(target, repo_id, revision, new_model_hash)
@@ -185,6 +186,24 @@ def verify_hf_model(
         exit(1)
 
     return result
+
+
+def _handle_gui_verification(
+    target: TargetHF, repo_id: str, revision: str, host: str = None, port: int = None
+) -> bool:
+    """Handle GUI-based verification."""
+    from model_sentinel.gui.gui import launch_gui_with_result
+    from model_sentinel.gui.utils import prepare_gui_verification_result
+
+    detect_args = (repo_id, revision)
+    verify_args = (repo_id, revision)
+    display_info = [f"**Repository:** {repo_id}", f"**Revision:** {revision}"]
+
+    result = prepare_gui_verification_result(
+        target, detect_args, verify_args, display_info
+    )
+    result.update({"target_type": "hf", "repo_id": repo_id, "revision": revision})
+    return launch_gui_with_result(result, "Hugging Face", host, port)
 
 
 def _handle_cli_verification(

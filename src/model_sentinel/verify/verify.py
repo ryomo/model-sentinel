@@ -243,42 +243,6 @@ class Verify:
             print(f"Error deleting directory: {e}")
             return False
 
-    def _verify_model_template(
-        self, target, detect_args: tuple, verify_args: tuple, display_info: list[str]
-    ) -> dict:
-        """Template method for model verification.
-
-        Args:
-            target: Target instance (HF or Local)
-            detect_args: Arguments for detect_model_changes (as tuple)
-            verify_args: Arguments for get_files_for_verification (as tuple)
-            display_info: Information to display in result
-
-        Returns:
-            Verification result dictionary
-        """
-        new_model_hash = target.detect_model_changes(*detect_args)
-
-        result = {
-            "status": "success",
-            "model_hash_changed": bool(new_model_hash),
-            "new_model_hash": new_model_hash,
-            "files_verified": False,
-            "message": "",
-            "files_info": [],
-            "display_info": display_info,
-        }
-
-        if not new_model_hash:
-            result["message"] = "No changes detected in the model hash."
-            result["files_verified"] = True
-        else:
-            files_info = target.get_files_for_verification(*verify_args)
-            result["files_info"] = files_info
-            result["message"] = f"Found {len(files_info)} files that need verification."
-
-        return result
-
     def _determine_target_from_model_dir(self, model_dir: Path) -> tuple[str, str]:
         """Infer target type and id from model_dir path.
 
@@ -346,40 +310,6 @@ class Verify:
         except Exception as e:  # noqa: BLE001
             print(f"[warn] metadata payload validation failed: {e}")
         self.storage.save_metadata(model_dir, new_meta)
-
-    def verify_hf_model(self, repo_id: str, revision: str = "main") -> dict:
-        """Verify HF model and return result."""
-        from model_sentinel.target.hf import TargetHF
-
-        target = TargetHF()
-        detect_args = (repo_id, revision)
-        verify_args = (repo_id, revision)
-        display_info = [f"**Repository:** {repo_id}", f"**Revision:** {revision}"]
-
-        result = self._verify_model_template(
-            target, detect_args, verify_args, display_info
-        )
-        result.update({"target_type": "hf", "repo_id": repo_id, "revision": revision})
-        return result
-
-    def verify_local_model(self, model_dir: str) -> dict:
-        """Verify local model and return result."""
-        from model_sentinel.target.local import TargetLocal
-
-        model_path = Path(model_dir)
-        if not model_path.exists():
-            raise FileNotFoundError(f"Model directory {model_dir} does not exist.")
-
-        target = TargetLocal()
-        detect_args = (model_path,)
-        verify_args = (model_path,)
-        display_info = [f"**Model Directory:** {model_path}"]
-
-        result = self._verify_model_template(
-            target, detect_args, verify_args, display_info
-        )
-        result.update({"target_type": "local", "model_dir": str(model_path)})
-        return result
 
     def get_model_key_from_result(self, verification_result: dict) -> str:
         """Get model key from verification result."""

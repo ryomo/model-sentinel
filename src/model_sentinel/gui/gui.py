@@ -4,8 +4,6 @@ GUI interface for Model Sentinel.
 
 from typing import Any, Dict, List, Optional
 
-from model_sentinel.verify.verify import Verify
-
 try:
     import gradio as gr
 except ImportError:
@@ -17,7 +15,6 @@ except ImportError:
 from .components import (
     create_file_verification_interface,
     create_no_files_section,
-    create_simple_interface,
     create_verification_summary,
 )
 
@@ -34,53 +31,7 @@ def _build_launch_kwargs(
     return kwargs
 
 
-def launch_verification_gui(
-    repo_id: str = None,
-    model_dir: str = None,
-    revision: str = "main",
-    host: str = None,
-    port: int = None,
-) -> bool:
-    """
-    Launch GUI for model verification and wait for user interaction.
-
-    Args:
-        repo_id: Hugging Face repository ID (for HF models)
-        model_dir: Local model directory path (for local models)
-        revision: Model revision (for HF models)
-        host: Server host address (None for Gradio default)
-        port: Server port (None for Gradio default)
-
-    Returns:
-        bool: True if verification successful and all files approved, False otherwise
-    """
-    if repo_id:
-        try:
-            verify = Verify()
-            result = verify.verify_hf_model(repo_id, revision)
-            return _launch_gui_with_result(result, "Hugging Face", host, port)
-        except Exception as e:
-            print(f"Error accessing repository: {str(e)}")
-            return False
-
-    elif model_dir:
-        try:
-            verify = Verify()
-            result = verify.verify_local_model(model_dir)
-            return _launch_gui_with_result(result, "Local", host, port)
-        except Exception as e:
-            print(f"Error accessing model directory: {str(e)}")
-            return False
-
-    else:
-        # No model specified, launch simple interface
-        demo = create_simple_interface()
-        launch_kwargs = _build_launch_kwargs(host, port)
-        demo.launch(share=False, inbrowser=True, **launch_kwargs)
-        return False
-
-
-def _launch_gui_with_result(
+def launch_gui_with_result(
     result: Dict[str, Any], model_type: str, host: str = None, port: int = None
 ) -> bool:
     """Launch GUI with verification result and wait for completion."""

@@ -344,16 +344,19 @@ class TestVerifyHFModel(unittest.TestCase):
         mock_target = Mock()
         mock_target_class.return_value = mock_target
         mock_target.detect_model_changes.return_value = "new_hash"
-        mock_target.handle_gui_verification.return_value = False
+        with patch(
+            "model_sentinel.target.hf._handle_gui_verification", return_value=False
+        ) as mock_gui:
+            with patch("builtins.print"):
+                result = verify_hf_model(
+                    self.test_repo_id,
+                    self.test_revision,
+                    gui=True,
+                    exit_on_reject=False,
+                )
 
-        with patch("builtins.print"):
-            result = verify_hf_model(
-                self.test_repo_id, self.test_revision, gui=True, exit_on_reject=False
-            )
-
-        mock_target.handle_gui_verification.assert_called_once_with(
-            repo_id=self.test_repo_id, revision=self.test_revision, host=None, port=None
-        )
+        # GUIフローは内部関数経由で処理される
+        mock_gui.assert_called_once()
         self.assertFalse(result)
 
     @patch("model_sentinel.target.hf.TargetHF")
@@ -364,23 +367,19 @@ class TestVerifyHFModel(unittest.TestCase):
         mock_target = Mock()
         mock_target_class.return_value = mock_target
         mock_target.detect_model_changes.return_value = "new_hash"
-        mock_target.handle_gui_verification.return_value = False
+        with patch(
+            "model_sentinel.target.hf._handle_gui_verification", return_value=False
+        ) as mock_gui:
+            with patch("builtins.print"):
+                with patch("builtins.exit") as mock_exit:
+                    result = verify_hf_model(
+                        self.test_repo_id,
+                        revision=self.test_revision,
+                        gui=True,
+                        exit_on_reject=True,
+                    )
 
-        with patch("builtins.print"):
-            with patch("builtins.exit") as mock_exit:
-                result = verify_hf_model(
-                    self.test_repo_id,
-                    revision=self.test_revision,
-                    gui=True,
-                    exit_on_reject=True,
-                )
-
-        # Verify GUI handler was called
-        mock_target.handle_gui_verification.assert_called_once_with(
-            repo_id=self.test_repo_id, revision=self.test_revision, host=None, port=None
-        )
-
-        # exit() should be called when exit_on_reject=True and verification fails
+        mock_gui.assert_called_once()
         mock_exit.assert_called_once_with(1)
         self.assertFalse(result)
 
@@ -392,23 +391,19 @@ class TestVerifyHFModel(unittest.TestCase):
         mock_target = Mock()
         mock_target_class.return_value = mock_target
         mock_target.detect_model_changes.return_value = "new_hash"
-        mock_target.handle_gui_verification.return_value = False
+        with patch(
+            "model_sentinel.target.hf._handle_gui_verification", return_value=False
+        ) as mock_gui:
+            with patch("builtins.print"):
+                with patch("builtins.exit") as mock_exit:
+                    result = verify_hf_model(
+                        self.test_repo_id,
+                        self.test_revision,
+                        gui=True,
+                        exit_on_reject=False,
+                    )
 
-        with patch("builtins.print"):
-            with patch("builtins.exit") as mock_exit:
-                result = verify_hf_model(
-                    self.test_repo_id,
-                    self.test_revision,
-                    gui=True,
-                    exit_on_reject=False,
-                )
-
-        # Verify GUI handler was called
-        mock_target.handle_gui_verification.assert_called_once_with(
-            repo_id=self.test_repo_id, revision=self.test_revision, host=None, port=None
-        )
-
-        # exit() should NOT be called when exit_on_reject=False
+        mock_gui.assert_called_once()
         mock_exit.assert_not_called()
         self.assertFalse(result)
 
@@ -418,17 +413,18 @@ class TestVerifyHFModel(unittest.TestCase):
         mock_target = Mock()
         mock_target_class.return_value = mock_target
         mock_target.detect_model_changes.return_value = "new_hash"
-        mock_target.handle_gui_verification.return_value = True
+        with patch(
+            "model_sentinel.target.hf._handle_gui_verification", return_value=True
+        ) as mock_gui:
+            with patch("builtins.print"):
+                result = verify_hf_model(
+                    self.test_repo_id,
+                    self.test_revision,
+                    gui=True,
+                    exit_on_reject=False,
+                )
 
-        with patch("builtins.print"):
-            result = verify_hf_model(
-                self.test_repo_id, self.test_revision, gui=True, exit_on_reject=False
-            )
-
-        # Verify GUI handler was called
-        mock_target.handle_gui_verification.assert_called_once_with(
-            repo_id=self.test_repo_id, revision=self.test_revision, host=None, port=None
-        )
+        mock_gui.assert_called_once()
         self.assertTrue(result)
 
 

@@ -177,28 +177,3 @@ class TargetBase:
         if original_path:
             kwargs["original_path"] = original_path
         self.storage.register_model(model_type, model_id, **kwargs)
-
-    def handle_gui_verification(
-        self,
-        repo_id: str = None,
-        revision: str = None,
-        model_dir: str = None,
-        host: str = None,
-        port: int = None,
-    ) -> bool:
-        """Handle GUI-based verification."""
-        try:
-            from model_sentinel.gui.gui import launch_verification_gui
-
-            print("Changes detected. Launching GUI for verification...")
-            return launch_verification_gui(
-                repo_id=repo_id,
-                revision=revision,
-                model_dir=model_dir,
-                host=host,
-                port=port,
-            )
-        except ImportError:
-            print("GUI functionality requires gradio. Install with:")
-            print("pip install 'model-sentinel[gui]'")
-            return False

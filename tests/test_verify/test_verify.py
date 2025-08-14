@@ -2,14 +2,14 @@
 Tests for model_sentinel.verify.verify module.
 """
 
+import shutil
 import tempfile
 import unittest
-import shutil
 from pathlib import Path
 from unittest.mock import Mock, patch
 
-from model_sentinel.verify.verify import Verify
 from model_sentinel.verify.storage import StorageManager
+from model_sentinel.verify.verify import Verify
 
 
 class TestVerify(unittest.TestCase):
@@ -153,24 +153,27 @@ class TestVerifyBusinessLogic(unittest.TestCase):
         if self.temp_dir.exists():
             shutil.rmtree(self.temp_dir)
 
-    @patch("model_sentinel.target.hf.TargetHF")
-    def test_verify_hf_model_no_changes(self, mock_target_hf_class):
-        """Test verify_hf_model when no changes are detected."""
-        # Setup mock
-        mock_target = Mock()
-        mock_target_hf_class.return_value = mock_target
-        mock_target.detect_model_changes.return_value = None  # No changes
+    def test_prepare_gui_hf_no_changes(self):
+        """Test prepare_gui_verification_result (HF) when no changes are detected."""
+        import sys
+        import types
 
-        verify = Verify()
-        result = verify.verify_hf_model("test/model")
+        with patch.dict(sys.modules, {"gradio": types.SimpleNamespace()}):
+            from model_sentinel.gui.utils import prepare_gui_verification_result
 
-        # Assertions
+            mock_target = Mock()
+            mock_target.detect_model_changes.return_value = None
+
+            result = prepare_gui_verification_result(
+                mock_target,
+                ("test/model", "main"),
+                ("test/model", "main"),
+                ["**Repository:** test/model", "**Revision:** main"],
+            )
+
         mock_target.detect_model_changes.assert_called_once_with("test/model", "main")
 
         expected_result = {
-            "target_type": "hf",
-            "repo_id": "test/model",
-            "revision": "main",
             "status": "success",
             "model_hash_changed": False,
             "new_model_hash": None,
@@ -181,34 +184,37 @@ class TestVerifyBusinessLogic(unittest.TestCase):
         }
         self.assertEqual(result, expected_result)
 
-    @patch("model_sentinel.target.hf.TargetHF")
-    def test_verify_hf_model_with_changes(self, mock_target_hf_class):
-        """Test verify_hf_model when changes are detected."""
-        # Setup mock
-        mock_target = Mock()
-        mock_target_hf_class.return_value = mock_target
-        mock_target.detect_model_changes.return_value = "new_hash_123"
-        mock_target.get_files_for_verification.return_value = [
-            {
-                "filename": "modeling.py",
-                "hash": "file_hash",
-                "content": "# Test content",
-            }
-        ]
+    def test_prepare_gui_hf_with_changes(self):
+        """Test prepare_gui_verification_result (HF) when changes are detected."""
+        import sys
+        import types
 
-        verify = Verify()
-        result = verify.verify_hf_model("test/model")
+        with patch.dict(sys.modules, {"gradio": types.SimpleNamespace()}):
+            from model_sentinel.gui.utils import prepare_gui_verification_result
 
-        # Assertions
+            mock_target = Mock()
+            mock_target.detect_model_changes.return_value = "new_hash_123"
+            mock_target.get_files_for_verification.return_value = [
+                {
+                    "filename": "modeling.py",
+                    "hash": "file_hash",
+                    "content": "# Test content",
+                }
+            ]
+
+            result = prepare_gui_verification_result(
+                mock_target,
+                ("test/model", "main"),
+                ("test/model", "main"),
+                ["**Repository:** test/model", "**Revision:** main"],
+            )
+
         mock_target.detect_model_changes.assert_called_once_with("test/model", "main")
         mock_target.get_files_for_verification.assert_called_once_with(
             "test/model", "main"
         )
 
         expected_result = {
-            "target_type": "hf",
-            "repo_id": "test/model",
-            "revision": "main",
             "status": "success",
             "model_hash_changed": True,
             "new_model_hash": "new_hash_123",
@@ -225,46 +231,55 @@ class TestVerifyBusinessLogic(unittest.TestCase):
         }
         self.assertEqual(result, expected_result)
 
-    def test_verify_local_model_directory_not_exists(self):
-        """Test verify_local_model when directory doesn't exist."""
+    def test_handle_gui_local_directory_not_exists(self):
+        """Test _handle_gui_verification (Local) raises when directory doesn't exist."""
+        import sys
+        import types
+
+        from model_sentinel.target.local import _handle_gui_verification
+
         non_existent_dir = "/path/to/nonexistent"
 
-        verify = Verify()
-
-        with self.assertRaises(FileNotFoundError) as context:
-            verify.verify_local_model(non_existent_dir)
+        with patch.dict(sys.modules, {"gradio": types.SimpleNamespace()}):
+            with self.assertRaises(FileNotFoundError) as context:
+                _handle_gui_verification(Mock(), Path(non_existent_dir))
 
         self.assertIn("does not exist", str(context.exception))
 
-    @patch("model_sentinel.target.local.TargetLocal")
-    def test_verify_local_model_success(self, mock_target_local_class):
-        """Test verify_local_model with successful operation."""
-        # Create temporary model directory
-        model_dir = self.temp_dir / "test_model"
-        model_dir.mkdir()
+    def test_prepare_gui_local_success(self):
+        """Test prepare_gui_verification_result (Local) with successful operation."""
+        import sys
+        import types
 
-        # Setup mock
-        mock_target = Mock()
-        mock_target_local_class.return_value = mock_target
-        mock_target.detect_model_changes.return_value = "local_hash_456"
-        mock_target.get_files_for_verification.return_value = [
-            {
-                "filename": "script.py",
-                "hash": "script_hash",
-                "content": "# Script content",
-            }
-        ]
+        with patch.dict(sys.modules, {"gradio": types.SimpleNamespace()}):
+            from model_sentinel.gui.utils import prepare_gui_verification_result
 
-        verify = Verify()
-        result = verify.verify_local_model(str(model_dir))
+            # Create temporary model directory
+            model_dir = self.temp_dir / "test_model"
+            model_dir.mkdir()
+
+            mock_target = Mock()
+            mock_target.detect_model_changes.return_value = "local_hash_456"
+            mock_target.get_files_for_verification.return_value = [
+                {
+                    "filename": "script.py",
+                    "hash": "script_hash",
+                    "content": "# Script content",
+                }
+            ]
+
+            result = prepare_gui_verification_result(
+                mock_target,
+                (model_dir,),
+                (model_dir,),
+                [f"**Model Directory:** {model_dir}"],
+            )
 
         # Assertions
         mock_target.detect_model_changes.assert_called_once_with(model_dir)
         mock_target.get_files_for_verification.assert_called_once_with(model_dir)
 
         expected_result = {
-            "target_type": "local",
-            "model_dir": str(model_dir),
             "status": "success",
             "model_hash_changed": True,
             "new_model_hash": "local_hash_456",

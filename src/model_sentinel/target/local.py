@@ -140,8 +140,9 @@ def verify_local_model(
 
     # Handle verification based on mode
     if gui:
-        result = target.handle_gui_verification(
-            model_dir=model_dir, host=host, port=port
+        print("Changes detected. Launching GUI for verification...")
+        result = _handle_gui_verification(
+            target, model_dir=model_dir, host=host, port=port
         )
     else:
         result = _handle_cli_verification(target, model_dir, new_model_hash)
@@ -151,6 +152,28 @@ def verify_local_model(
         exit(1)
 
     return result
+
+
+def _handle_gui_verification(
+    target: TargetLocal, model_dir: Path, host: str = None, port: int = None
+) -> bool:
+    """Handle GUI-based verification for local models."""
+    from model_sentinel.gui.gui import launch_gui_with_result
+    from model_sentinel.gui.utils import prepare_gui_verification_result
+
+    model_path = Path(model_dir)
+    if not model_path.exists():
+        raise FileNotFoundError(f"Model directory {model_dir} does not exist.")
+
+    detect_args = (model_path,)
+    verify_args = (model_path,)
+    display_info = [f"**Model Directory:** {model_path}"]
+
+    result = prepare_gui_verification_result(
+        target, detect_args, verify_args, display_info
+    )
+    result.update({"target_type": "local", "model_dir": str(model_path)})
+    return launch_gui_with_result(result, "Local", host, port)
 
 
 def _handle_cli_verification(
