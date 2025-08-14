@@ -2,6 +2,7 @@
 GUI components for Model Sentinel verification interface.
 """
 
+from functools import partial
 from typing import Any, Dict, List
 
 from model_sentinel.verify.verify import Verify
@@ -119,84 +120,104 @@ def create_final_verification_interface(
     # HTML component for completion messages
     close_browser_html = gr.HTML(value="", visible=True)
 
-    def complete_verification_simple(*checkbox_values):
-        # Get list of approved files based on checkbox values
-        approved_files = []
-        total_files = len(files_to_verify)
-
-        for i, is_approved in enumerate(checkbox_values):
-            if is_approved and i < len(files_to_verify):
-                filename = files_to_verify[i]["filename"]
-                approved_files.append(filename)
-
-        # Build session records and try to always write run metadata on partial approval
-        verify = Verify()
-        try:
-            session_files = []
-            for i, fi in enumerate(files_to_verify):
-                fname = fi.get("filename", "")
-                session_files.append(
-                    {
-                        "filename": fname,
-                        "hash": fi.get("hash", ""),
-                        "content": fi.get("content", ""),
-                        "approved": (i < len(checkbox_values))
-                        and bool(checkbox_values[i]),
-                    }
-                )
-
-            model_dir = verify._resolve_model_dir(
-                verification_result=verification_result
-            )
-            # Only write here when not all approved OR when no files approved; success path will call save_verification_results()
-            if model_dir is not None and (
-                len(approved_files) != total_files or total_files == 0
-            ):
-                verify.save_run_metadata(model_dir, session_files)
-        except Exception as e:
-            # Do not break GUI on metadata write issues
-            print(f"Warning: failed to write run metadata from GUI: {e}")
-
-        # Metadata for partial/none approvals is written above; now check if all files are approved
-        if len(approved_files) == total_files and total_files > 0:
-            # All files approved - save and return success
-            verify.save_verification_results(verification_result, approved_files)
-            gui_state["verification_result"] = True
-
-            # Display completion message to user
-            close_script = """
-            <div style="background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; padding: 20px; border-radius: 5px; margin: 20px 0; text-align: center; font-family: Arial, sans-serif;">
-                <h3 style="margin: 0 0 10px 0;">🎉 Verification Complete!</h3>
-                <p style="margin: 0; font-size: 16px;">All files have been successfully verified and saved.</p>
-                <p style="margin: 10px 0 0 0; font-size: 14px; color: #6c757d;"><strong>The server will close automatically in a few seconds.</strong></p>
-            </div>
-            """
-
-            # Set completion flag to trigger server shutdown
-            gui_state["completion_requested"] = True
-
-            return "✅ Verification completed successfully!", close_script
-
-        else:
-            # Not all files approved - show error and exit
-            error_msg = f"❌ Not all files approved ({len(approved_files)}/{total_files}). Verification failed."
-            gui_state["verification_result"] = False
-
-            close_script = """
-            <div style="background-color: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; padding: 20px; border-radius: 5px; margin: 20px 0; text-align: center; font-family: Arial, sans-serif;">
-                <h3 style="margin: 0 0 10px 0;">❌ Verification Failed</h3>
-                <p style="margin: 0; font-size: 16px;">Not all files were approved. The verification process has been cancelled.</p>
-                <p style="margin: 10px 0 0 0; font-size: 14px; color: #6c757d;"><strong>The server will close automatically in a few seconds.</strong></p>
-            </div>
-            """
-
-            # Set completion flag to trigger server shutdown
-            gui_state["completion_requested"] = True
-
-            return error_msg, close_script
+    # Create a partial function with pre-filled arguments
+    complete_verification_handler = partial(
+        _complete_verification, verification_result, files_to_verify, gui_state
+    )
 
     final_approve_btn.click(
-        complete_verification_simple,
+        complete_verification_handler,
         inputs=file_checkboxes,
         outputs=[final_status, close_browser_html],
     )
+
+
+def _complete_verification(
+    verification_result: Dict[str, Any],
+    files_to_verify: List[Dict[str, Any]],
+    gui_state: Dict[str, Any],
+    *checkbox_values,
+) -> tuple[str, str]:
+    """
+    Complete the verification process based on checkbox values.
+
+    Args:
+        verification_result: The verification result data
+        files_to_verify: List of files that need verification
+        gui_state: The GUI state dictionary
+        *checkbox_values: Variable number of checkbox values
+
+    Returns:
+        Tuple of (status_message, html_content)
+    """
+    # Get list of approved files based on checkbox values
+    approved_files = []
+    total_files = len(files_to_verify)
+
+    for i, is_approved in enumerate(checkbox_values):
+        if is_approved and i < len(files_to_verify):
+            filename = files_to_verify[i]["filename"]
+            approved_files.append(filename)
+
+    # Build session records and try to always write run metadata on partial approval
+    verify = Verify()
+    try:
+        session_files = []
+        for i, fi in enumerate(files_to_verify):
+            fname = fi.get("filename", "")
+            session_files.append(
+                {
+                    "filename": fname,
+                    "hash": fi.get("hash", ""),
+                    "content": fi.get("content", ""),
+                    "approved": (i < len(checkbox_values)) and bool(checkbox_values[i]),
+                }
+            )
+
+        model_dir = verify._resolve_model_dir(verification_result=verification_result)
+        # Only write here when not all approved OR when no files approved; success path will call save_verification_results()
+        if model_dir is not None and (
+            len(approved_files) != total_files or total_files == 0
+        ):
+            verify.save_run_metadata(model_dir, session_files)
+    except Exception as e:
+        # Do not break GUI on metadata write issues
+        print(f"Warning: failed to write run metadata from GUI: {e}")
+
+    # Metadata for partial/none approvals is written above; now check if all files are approved
+    if len(approved_files) == total_files and total_files > 0:
+        # All files approved - save and return success
+        verify.save_verification_results(verification_result, approved_files)
+        gui_state["verification_result"] = True
+
+        # Display completion message to user
+        close_script = """
+        <div style="background-color: #d4edda; border: 1px solid #c3e6cb; color: #155724; padding: 20px; border-radius: 5px; margin: 20px 0; text-align: center; font-family: Arial, sans-serif;">
+            <h3 style="margin: 0 0 10px 0;">🎉 Verification Complete!</h3>
+            <p style="margin: 0; font-size: 16px;">All files have been successfully verified and saved.</p>
+            <p style="margin: 10px 0 0 0; font-size: 14px; color: #6c757d;"><strong>The server will close automatically in a few seconds.</strong></p>
+        </div>
+        """
+
+        # Set completion flag to trigger server shutdown
+        gui_state["completion_requested"] = True
+
+        return "✅ Verification completed successfully!", close_script
+
+    else:
+        # Not all files approved - show error and exit
+        error_msg = f"❌ Not all files approved ({len(approved_files)}/{total_files}). Verification failed."
+        gui_state["verification_result"] = False
+
+        close_script = """
+        <div style="background-color: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; padding: 20px; border-radius: 5px; margin: 20px 0; text-align: center; font-family: Arial, sans-serif;">
+            <h3 style="margin: 0 0 10px 0;">❌ Verification Failed</h3>
+            <p style="margin: 0; font-size: 16px;">Not all files were approved. The verification process has been cancelled.</p>
+            <p style="margin: 10px 0 0 0; font-size: 14px; color: #6c757d;"><strong>The server will close automatically in a few seconds.</strong></p>
+        </div>
+        """
+
+        # Set completion flag to trigger server shutdown
+        gui_state["completion_requested"] = True
+
+        return error_msg, close_script
