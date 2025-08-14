@@ -179,7 +179,12 @@ class TargetBase:
         self.storage.register_model(model_type, model_id, **kwargs)
 
     def handle_gui_verification(
-        self, repo_id: str = None, revision: str = None, model_dir: str = None
+        self,
+        repo_id: str = None,
+        revision: str = None,
+        model_dir: str = None,
+        host: str = None,
+        port: int = None,
     ) -> bool:
         """Handle GUI-based verification."""
         try:
@@ -187,7 +192,11 @@ class TargetBase:
 
             print("Changes detected. Launching GUI for verification...")
             return launch_verification_gui(
-                repo_id=repo_id, revision=revision, model_dir=model_dir
+                repo_id=repo_id,
+                revision=revision,
+                model_dir=model_dir,
+                host=host,
+                port=port,
             )
         except ImportError:
             print("GUI functionality requires gradio. Install with:")

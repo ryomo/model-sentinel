@@ -2,10 +2,10 @@
 Tests for model_sentinel.target.hf module.
 """
 
-import unittest
-from unittest.mock import Mock, patch
 import tempfile
+import unittest
 from pathlib import Path
+from unittest.mock import Mock, patch
 
 from model_sentinel.target.hf import TargetHF, verify_hf_model
 
@@ -352,7 +352,7 @@ class TestVerifyHFModel(unittest.TestCase):
             )
 
         mock_target.handle_gui_verification.assert_called_once_with(
-            repo_id=self.test_repo_id, revision=self.test_revision
+            repo_id=self.test_repo_id, revision=self.test_revision, host=None, port=None
         )
         self.assertFalse(result)
 
@@ -377,7 +377,7 @@ class TestVerifyHFModel(unittest.TestCase):
 
         # Verify GUI handler was called
         mock_target.handle_gui_verification.assert_called_once_with(
-            repo_id=self.test_repo_id, revision=self.test_revision
+            repo_id=self.test_repo_id, revision=self.test_revision, host=None, port=None
         )
 
         # exit() should be called when exit_on_reject=True and verification fails
@@ -405,7 +405,7 @@ class TestVerifyHFModel(unittest.TestCase):
 
         # Verify GUI handler was called
         mock_target.handle_gui_verification.assert_called_once_with(
-            repo_id=self.test_repo_id, revision=self.test_revision
+            repo_id=self.test_repo_id, revision=self.test_revision, host=None, port=None
         )
 
         # exit() should NOT be called when exit_on_reject=False
@@ -427,7 +427,7 @@ class TestVerifyHFModel(unittest.TestCase):
 
         # Verify GUI handler was called
         mock_target.handle_gui_verification.assert_called_once_with(
-            repo_id=self.test_repo_id, revision=self.test_revision
+            repo_id=self.test_repo_id, revision=self.test_revision, host=None, port=None
         )
         self.assertTrue(result)
 

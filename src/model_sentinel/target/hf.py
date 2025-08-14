@@ -1,6 +1,6 @@
 from huggingface_hub import HfApi
 
-from model_sentinel.target.base import TargetBase, VERIFICATION_FAILED_MESSAGE
+from model_sentinel.target.base import VERIFICATION_FAILED_MESSAGE, TargetBase
 
 
 class TargetHF(TargetBase):
@@ -147,7 +147,9 @@ class TargetHF(TargetBase):
         return files_info
 
 
-def verify_hf_model(repo_id, revision=None, gui=False, exit_on_reject=True) -> bool:
+def verify_hf_model(
+    repo_id, revision=None, gui=False, exit_on_reject=True, host=None, port=None
+) -> bool:
     """
     Check if the model hash has changed and verify remote files.
 
@@ -156,6 +158,8 @@ def verify_hf_model(repo_id, revision=None, gui=False, exit_on_reject=True) -> b
         revision: Model revision/branch
         gui: If True, launch GUI for verification if needed
         exit_on_reject: If True, exit the process when verification fails
+        host: Host address for GUI server (None for default)
+        port: Port for GUI server (None for default)
 
     Returns:
         bool: True if verification successful or no changes detected
@@ -170,7 +174,9 @@ def verify_hf_model(repo_id, revision=None, gui=False, exit_on_reject=True) -> b
         return True
 
     if gui:
-        result = target.handle_gui_verification(repo_id=repo_id, revision=revision)
+        result = target.handle_gui_verification(
+            repo_id=repo_id, revision=revision, host=host, port=port
+        )
     else:
         result = _handle_cli_verification(target, repo_id, revision, new_model_hash)
 

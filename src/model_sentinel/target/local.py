@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from model_sentinel.target.base import TargetBase, VERIFICATION_FAILED_MESSAGE
+from model_sentinel.target.base import VERIFICATION_FAILED_MESSAGE, TargetBase
 
 
 class TargetLocal(TargetBase):
@@ -104,7 +104,9 @@ class TargetLocal(TargetBase):
         return files_info
 
 
-def verify_local_model(model_dir: str | Path, gui=False, exit_on_reject=True) -> bool:
+def verify_local_model(
+    model_dir: str | Path, gui=False, exit_on_reject=True, host=None, port=None
+) -> bool:
     """
     Check if the local model hash has changed and verify local files.
 
@@ -112,6 +114,8 @@ def verify_local_model(model_dir: str | Path, gui=False, exit_on_reject=True) ->
         model_dir: Path to the local model directory
         gui: If True, launch GUI for verification if needed
         exit_on_reject: If True, exit the process when verification fails
+        host: Host address for GUI server (None for default)
+        port: Port for GUI server (None for default)
 
     Returns:
         bool: True if verification successful or no changes detected
@@ -136,7 +140,9 @@ def verify_local_model(model_dir: str | Path, gui=False, exit_on_reject=True) ->
 
     # Handle verification based on mode
     if gui:
-        result = target.handle_gui_verification(model_dir=model_dir)
+        result = target.handle_gui_verification(
+            model_dir=model_dir, host=host, port=port
+        )
     else:
         result = _handle_cli_verification(target, model_dir, new_model_hash)
 

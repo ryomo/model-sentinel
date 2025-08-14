@@ -1,9 +1,9 @@
 """Test cases for model_sentinel.target.local module."""
 
+import tempfile
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-import tempfile
 from unittest.mock import Mock, patch
 
 from model_sentinel.target.local import TargetLocal, verify_local_model
@@ -277,7 +277,7 @@ class TestVerifyLocalModel(unittest.TestCase):
 
         self.assertTrue(result)
         mock_target.handle_gui_verification.assert_called_once_with(
-            model_dir=temp_model_dir
+            model_dir=temp_model_dir, host=None, port=None
         )
 
     @patch("model_sentinel.target.local.TargetLocal")
@@ -297,7 +297,7 @@ class TestVerifyLocalModel(unittest.TestCase):
                 )
 
         mock_target.handle_gui_verification.assert_called_once_with(
-            model_dir=temp_model_dir
+            model_dir=temp_model_dir, host=None, port=None
         )
         self.assertFalse(result)
 
@@ -322,7 +322,7 @@ class TestVerifyLocalModel(unittest.TestCase):
 
         # Verify GUI handler was called
         mock_target.handle_gui_verification.assert_called_once_with(
-            model_dir=temp_model_dir
+            model_dir=temp_model_dir, host=None, port=None
         )
 
         # exit() should be called when exit_on_reject=True and verification fails
@@ -350,7 +350,7 @@ class TestVerifyLocalModel(unittest.TestCase):
 
         # Verify GUI handler was called
         mock_target.handle_gui_verification.assert_called_once_with(
-            model_dir=temp_model_dir
+            model_dir=temp_model_dir, host=None, port=None
         )
 
         # exit() should NOT be called when exit_on_reject=False

@@ -42,31 +42,7 @@ def main():
     parser.add_argument("--delete", action="store_true", help="Delete the hash file")
     args = parser.parse_args()
 
-    if args.gui:
-        # Launch GUI interface
-        try:
-            from model_sentinel.gui import launch_verification_gui
-
-            print("Starting Model Sentinel GUI...")
-            if args.hf:
-                launch_verification_gui(
-                    repo_id=args.hf,
-                    revision=args.revision,
-                    host=args.host,
-                    port=args.port,
-                )
-            elif args.local:
-                launch_verification_gui(
-                    model_dir=args.local, host=args.host, port=args.port
-                )
-            else:
-                launch_verification_gui(host=args.host, port=args.port)
-        except ImportError:
-            print("GUI functionality requires gradio. Install with:")
-            print("pip install 'model-sentinel[gui]'")
-            return
-
-    elif args.delete:
+    if args.delete:
         # Delete the hash file (the list of verified files)
         verify = Verify()
         result = verify.delete_hash_file()
@@ -81,26 +57,42 @@ def main():
         verify.list_verified_hashes()
 
     else:
-        # Check if any model-related arguments are provided
+        # Verify local model
         if args.local:
-            # Verify local model
             print(f"Verifying local model: {args.local}")
-            if not verify_local_model(args.local):
+            result = verify_local_model(
+                args.local,
+                gui=args.gui,
+                exit_on_reject=False,
+                host=args.host,
+                port=args.port,
+            )
+            if not result:
                 print(f"Local model {args.local} is not verified.")
                 print(
                     "Please verify all files in the model directory before proceeding."
                 )
+
+        # Verify Hugging Face model
         elif args.hf:
-            # Verify Hugging Face model
             repo_name = args.hf
             revision = args.revision
             print(f"Using repository: {repo_name} at revision: {revision}")
 
-            if not verify_hf_model(repo_name, revision):
+            result = verify_hf_model(
+                repo_name,
+                revision,
+                gui=args.gui,
+                exit_on_reject=False,
+                host=args.host,
+                port=args.port,
+            )
+            if not result:
                 print(f"Repository {repo_name} at revision {revision} is not verified.")
                 print(
                     "Please verify all remote files in the repository before proceeding."
                 )
+
+        # No model specified - show help
         else:
-            # No model specified - show help
             parser.print_help()

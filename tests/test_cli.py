@@ -84,7 +84,14 @@ class TestCLI(unittest.TestCase):
         with patch("builtins.print"):
             cli.main()
 
-        mock_verify_hf.assert_called_once_with("custom/repo", "v1.0")
+        mock_verify_hf.assert_called_once_with(
+            "custom/repo",
+            "v1.0",
+            gui=False,
+            exit_on_reject=False,
+            host="127.0.0.1",
+            port=7860,
+        )
 
     @patch("model_sentinel.cli.verify_hf_model")
     def test_hf_model_not_verified(self, mock_verify_hf):
@@ -96,7 +103,14 @@ class TestCLI(unittest.TestCase):
         with patch("builtins.print") as mock_print:
             cli.main()
 
-        mock_verify_hf.assert_called_once_with("test/repo", "main")
+        mock_verify_hf.assert_called_once_with(
+            "test/repo",
+            "main",
+            gui=False,
+            exit_on_reject=False,
+            host="127.0.0.1",
+            port=7860,
+        )
 
         # Check error messages
         print_calls = [call[0][0] for call in mock_print.call_args_list]
@@ -124,7 +138,13 @@ class TestCLI(unittest.TestCase):
         with patch("builtins.print") as mock_print:
             cli.main()
 
-        mock_verify_local.assert_called_once_with("/path/to/model")
+        mock_verify_local.assert_called_once_with(
+            "/path/to/model",
+            gui=False,
+            exit_on_reject=False,
+            host="127.0.0.1",
+            port=7860,
+        )
 
         # Check that it prints the local model info
         print_calls = [call[0][0] for call in mock_print.call_args_list]
@@ -142,7 +162,13 @@ class TestCLI(unittest.TestCase):
         with patch("builtins.print") as mock_print:
             cli.main()
 
-        mock_verify_local.assert_called_once_with("/path/to/model")
+        mock_verify_local.assert_called_once_with(
+            "/path/to/model",
+            gui=False,
+            exit_on_reject=False,
+            host="127.0.0.1",
+            port=7860,
+        )
 
         # Check error messages
         print_calls = [call[0][0] for call in mock_print.call_args_list]
@@ -202,23 +228,20 @@ class TestCLIHostPortArguments(unittest.TestCase):
         self.assertEqual(args.host, "127.0.0.1")
         self.assertEqual(args.port, 7860)
 
-    @patch("model_sentinel.gui.launch_verification_gui")
-    def test_cli_to_gui_with_host_port(self, mock_launch):
-        """Test that CLI passes host and port to GUI correctly."""
+    @patch("argparse.ArgumentParser.print_help")
+    def test_cli_to_gui_with_host_port(self, mock_print_help):
+        """When only --gui is provided without model args, show help (no direct GUI launch)."""
         with patch(
             "sys.argv",
             ["model-sentinel", "--gui", "--host", "0.0.0.0", "--port", "9000"],
         ):
-            try:
-                cli.main()
-            except SystemExit:
-                pass  # SystemExit is expected but not required
+            cli.main()
 
-        mock_launch.assert_called_once_with(host="0.0.0.0", port=9000)
+        mock_print_help.assert_called_once()
 
-    @patch("model_sentinel.gui.launch_verification_gui")
-    def test_cli_to_gui_with_repo(self, mock_launch):
-        """Test CLI to GUI integration with repo specification."""
+    @patch("model_sentinel.cli.verify_hf_model")
+    def test_cli_to_gui_with_repo(self, mock_verify_hf):
+        """When --gui with repo is provided, verify_hf_model is called with host/port forwarded."""
         test_args = [
             "model-sentinel",
             "--gui",
@@ -233,25 +256,24 @@ class TestCLIHostPortArguments(unittest.TestCase):
         ]
 
         with patch("sys.argv", test_args):
-            try:
-                cli.main()
-            except SystemExit:
-                pass  # SystemExit is expected but not required
+            cli.main()
 
-        mock_launch.assert_called_once_with(
-            repo_id="test/repo", revision="v1.0", host="192.168.1.100", port=8080
+        mock_verify_hf.assert_called_once_with(
+            "test/repo",
+            "v1.0",
+            gui=True,
+            exit_on_reject=False,
+            host="192.168.1.100",
+            port=8080,
         )
 
-    @patch("model_sentinel.gui.launch_verification_gui")
-    def test_cli_to_gui_defaults(self, mock_launch):
-        """Test CLI to GUI with default values."""
+    @patch("argparse.ArgumentParser.print_help")
+    def test_cli_to_gui_defaults(self, mock_print_help):
+        """When only --gui is provided, show help instead of launching GUI directly."""
         with patch("sys.argv", ["model-sentinel", "--gui"]):
-            try:
-                cli.main()
-            except SystemExit:
-                pass  # SystemExit is expected but not required
+            cli.main()
 
-        mock_launch.assert_called_once_with(host="127.0.0.1", port=7860)
+        mock_print_help.assert_called_once()
 
 
 if __name__ == "__main__":
