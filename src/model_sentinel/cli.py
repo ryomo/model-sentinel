@@ -59,40 +59,46 @@ def main():
     else:
         # Verify local model
         if args.local:
-            print(f"Verifying local model: {args.local}")
-            result = verify_local_model(
-                args.local,
-                gui=args.gui,
-                exit_on_reject=False,
-                host=args.host,
-                port=args.port,
-            )
-            if not result:
-                print(f"Local model {args.local} is not verified.")
-                print(
-                    "Please verify all files in the model directory before proceeding."
-                )
+            _local_verification(args)
 
         # Verify Hugging Face model
         elif args.hf:
-            repo_name = args.hf
-            revision = args.revision
-            print(f"Using repository: {repo_name} at revision: {revision}")
-
-            result = verify_hf_model(
-                repo_name,
-                revision,
-                gui=args.gui,
-                exit_on_reject=False,
-                host=args.host,
-                port=args.port,
-            )
-            if not result:
-                print(f"Repository {repo_name} at revision {revision} is not verified.")
-                print(
-                    "Please verify all remote files in the repository before proceeding."
-                )
+            _hf_verification(args)
 
         # No model specified - show help
         else:
             parser.print_help()
+
+
+def _local_verification(args):
+    """Handle verification flow for a local model based on parsed args."""
+    print(f"Verifying local model: {args.local}")
+    result = verify_local_model(
+        args.local,
+        gui=args.gui,
+        exit_on_reject=False,
+        host=args.host,
+        port=args.port,
+    )
+    if not result:
+        print(f"Local model {args.local} is not verified.")
+        print("Please verify all files in the model directory before proceeding.")
+
+
+def _hf_verification(args):
+    """Handle verification flow for a Hugging Face model based on parsed args."""
+    repo_name = args.hf
+    revision = args.revision
+    print(f"Using repository: {repo_name} at revision: {revision}")
+
+    result = verify_hf_model(
+        repo_name,
+        revision,
+        gui=args.gui,
+        exit_on_reject=False,
+        host=args.host,
+        port=args.port,
+    )
+    if not result:
+        print(f"Repository {repo_name} at revision {revision} is not verified.")
+        print("Please verify all remote files in the repository before proceeding.")
