@@ -1,5 +1,5 @@
 """
-Main GUI interface for Model Sentinel.
+GUI interface for Model Sentinel.
 """
 
 from typing import Any, Dict, List, Optional

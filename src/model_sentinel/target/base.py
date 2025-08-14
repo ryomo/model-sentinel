@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from model_sentinel.verify.verify import Verify
 from model_sentinel.verify.storage import StorageManager
+from model_sentinel.verify.verify import Verify
 
 VERIFICATION_FAILED_MESSAGE = "Model verification failed. Exiting for security reasons."
 
@@ -183,7 +183,7 @@ class TargetBase:
     ) -> bool:
         """Handle GUI-based verification."""
         try:
-            from model_sentinel.gui.main import launch_verification_gui
+            from model_sentinel.gui.gui import launch_verification_gui
 
             print("Changes detected. Launching GUI for verification...")
             return launch_verification_gui(
