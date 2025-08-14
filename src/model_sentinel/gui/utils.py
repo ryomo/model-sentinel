@@ -23,7 +23,10 @@ def format_status(status: str) -> str:
 
 
 def generate_diff_html(old_content: str, new_content: str, filename: str) -> str:
-    """Generate HTML diff between two file contents."""
+    """
+    Generate HTML diff between two file contents.
+    TODO: This function is not used for now, but can be used in future for displaying diffs in the GUI.
+    """
     differ = difflib.HtmlDiff()
     return differ.make_file(
         old_content.splitlines(),
