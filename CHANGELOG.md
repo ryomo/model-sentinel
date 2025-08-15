@@ -5,6 +5,55 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.4.0] - 2025-08-15
+
+### Feat
+
+- feat: add custom exceptions and validation helpers for metadata processing
+- feat: always write metadata.json (GUI partial/zero approvals)
+- feat: add demo script for inference using a downloaded model from ZIP file
+- feat: add bump_version script to automate version updates
+
+### Refactor
+
+- refactor: update GUI verification functions to use direct parameters for clarity
+- refactor: simplify verification completion logic with partial function
+- refactor: streamline GUI verification flow and remove unused functions
+- refactor: extract verification logic into separate functions for clarity
+- refactor: unify GUI/CLI via verify_*
+- refactor: rename gui.main to gui.gui
+- refactor: update hash calculation methods for improved portability and reproducibility
+- refactor: switch to "approved_files"-only schema and ok/ng "overall_status"
+- refactor: isolate session + metadata logic and expose save_run_metadata API
+- refactor: clean up inference script by removing unused imports and print statements
+
+### Fix
+
+- fix: correct typo in .gitignore for downloaded_models directory
+
+### Test
+
+- test: route storage to temporary directory in test cases and clean up after tests
+
+### Chore
+
+- chore: bump version to v0.4.0
+- chore: run `uv sync --upgrade`
+- chore: slim public API
+- chore: format code using ruff and remove unused code
+- chore: add ruff to dependencies and update VSCode settings
+- chore: update local demo script to require user to set MODEL_DIR
+- chore: remove dummy files
+- chore: add markdownlint configuration to disable line length rule
+- chore: move "scripts/inference_from_hub.py" to "samples/demo_hf.py"
+
+### Docs
+
+- docs: update docstring for generate_diff_html function
+- docs: update metadata schema examples
+- docs: update README with quickstart guide and usage examples
+- docs: update copilot instructions for testing framework and README consultation
+
 ## [v0.3.0] - 2025-08-05
 
 ### Feat
