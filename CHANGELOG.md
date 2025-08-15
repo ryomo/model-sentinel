@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.3.0] - 2025-08-05
+
+### Feat
+
+- feat: add version argument to CLI for displaying model-sentinel version
+- feat: add GitHub Actions workflow for automated PyPI release process
+
+### Refactor
+
+- refactor: consolidate storage management and eliminate verification code duplication
+- refactor: streamline file verification process and user prompt handling
+- refactor: extract GUI business logic to Verify class
+
+### Fix
+
+- fix: remove hardcoded revision assignment in favor of parameter
+- fix: unify exit behavior for GUI in `verify_hf_model()` and `verify_local_model()`
+- Fix model-sentinel CLI test in release workflow
+- Fix deprecated actions/upload-artifact and actions/download-artifact to v4
+
+### Chore
+
+- chore: bump version to v0.3.0
+- chore: update unittest configuration in settings.json
+- chore: simplify model verification process in inference script
+- chore: update Python version compatibility to include 3.11 and 3.12
+- chore: update commit message generation instructions for clarity
+- chore: downgrade Python version requirement to 3.10 and update unittest accordingly
+- chore: reorder CLI argument definitions for improved help output clarity
+- chore: bump model-sentinel version to 0.2.0
+
+### Docs
+
+- docs: add publishing instructions for automatic PyPI deployment
+
 ## [0.2.0] - 2025-07-29
 
 ### Added
