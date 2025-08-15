@@ -186,7 +186,13 @@ This project uses GitHub Actions to automatically publish to PyPI when a new ver
     git push origin v1.2.3
     ```
 
-GitHub Actions will build and publish the package to PyPI automatically.
+    GitHub Actions will build and publish the package to PyPI automatically.
+
+3. GitHub Actions will also generate a changelog entry in `CHANGELOG.md` based on the commits since the last tag. Don't forget to get the latest changes after the release.
+
+    ```sh
+    git pull
+    ```
 
 ## Technical Specifications
 
